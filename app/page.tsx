@@ -46,7 +46,7 @@ export default function Home() {
   }, [user]);
 
   // --- 2. AUTH HANDLERS: Sign Up & Sign In functions ---
-  const handleAuth = async (e) => {
+  const handleAuth = async (e: any) => {
     e.preventDefault();
     setAuthError('');
     try {
@@ -77,7 +77,7 @@ export default function Home() {
 
       if (error) throw error;
 
-      const total = data.reduce((sum, entry) => sum + entry.amount_ml, 0);
+      const total = data.reduce((sum: number, entry: any) => sum + entry.amount_ml, 0);
       setWaterIntake(total);
     } catch (err) {
       const errorObj = err as any;
@@ -86,7 +86,7 @@ export default function Home() {
   };
 
   // --- 4. DATABASE SAVE: Stamp entries with owner data ---
-  const saveWaterEntry = async (amount) => {
+  const saveWaterEntry = async (amount: number) => {
     try {
       const { error } = await supabase
         .from('water_entries')
@@ -115,12 +115,12 @@ export default function Home() {
     }
   };
 
-  const handleQuickAdd = async (amount) => {
+  const handleQuickAdd = async (amount: number) => {
     await saveWaterEntry(amount);
     setChatHistory((prev) => [...prev, { sender: 'agent', text: `Logged ${amount}ml to your private account!` }]);
   };
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e: any) => {
     e.preventDefault();
     if (!chatMessage.trim() || isLoading) return;
 
@@ -171,8 +171,9 @@ export default function Home() {
               <input 
                 type="email" 
                 required
+                suppressHydrationWarning
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: any) => setEmail(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 placeholder="you@example.com"
               />
@@ -182,8 +183,9 @@ export default function Home() {
               <input 
                 type="password" 
                 required
+                suppressHydrationWarning
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: any) => setPassword(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 placeholder="••••••••"
               />
@@ -258,7 +260,7 @@ export default function Home() {
           <div className="space-y-3">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Agent Chat</h3>
             <div className="bg-slate-900/60 rounded-2xl p-4 h-48 overflow-y-auto space-y-3 text-sm border border-slate-700/50">
-              {chatHistory.map((msg, idx) => (
+              {chatHistory.map((msg: any, idx: number) => (
                 <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm leading-relaxed ${
                     msg.sender === 'user' ? 'bg-sky-600 text-white rounded-tr-none' : 'bg-slate-700 text-slate-200 rounded-tl-none'
@@ -283,7 +285,7 @@ export default function Home() {
           <input 
             type="text" 
             value={chatMessage}
-            onChange={(e) => setChatMessage(e.target.value)}
+            onChange={(e: any) => setChatMessage(e.target.value)}
             disabled={isLoading}
             placeholder={isLoading ? "Thinking..." : "Tell the AI what you drank..."} 
             className="flex-1 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder-slate-500 border border-slate-700 disabled:opacity-50"
