@@ -1,19 +1,74 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from './lib/supabase'; // Import our cloud database link
+import { supabase } from './lib/supabase';
 
 export default function Home() {
+  // --- Auth State Variables ---
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authError, setAuthError] = useState('');
+
+  // --- App Tracker State Variables ---
   const [waterIntake, setWaterIntake] = useState(0); 
-  const dailyGoal = 2500; 
+  const dailyGoal = 2500; // We will make this adjustable in the next step!
   const [chatMessage, setChatMessage] = useState(''); 
   const [isLoading, setIsLoading] = useState(false); 
   const [chatHistory, setChatHistory] = useState([
-    { sender: 'agent', text: 'Hello! I am your AI Water Assistant. All entries are now securely saved to your permanent cloud database!' }
+    { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Your entries are safely secured to your private account!' }
   ]);
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
 
-  // --- 1. DATABASE FETCH: Read water entries from the cloud automatically on page load ---
+  // --- 1. AUTH MONITOR: Check if a user is logged in automatically ---
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen live for sign-in or sign-out changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Run database fetch only when a user successfully authenticates
+  useEffect(() => {
+    if (user) {
+      fetchTodayWater();
+    } else {
+      setWaterIntake(0);
+    }
+  }, [user]);
+
+  // --- 2. AUTH HANDLERS: Sign Up & Sign In functions ---
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert('Check your email inbox for a verification link!');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err) {
+      const errorObj = err as any;
+      setAuthError(errorObj?.message || 'Authentication failed');
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // --- 3. DATABASE FETCH: Read entries belonging ONLY to the logged in user ---
   const fetchTodayWater = async () => {
     try {
       const { data, error } = await supabase
@@ -22,54 +77,47 @@ export default function Home() {
 
       if (error) throw error;
 
-      // Sum up all the amount_ml values in our table rows
       const total = data.reduce((sum, entry) => sum + entry.amount_ml, 0);
       setWaterIntake(total);
     } catch (err) {
-      console.error("Error reading database:", err.message);
+      const errorObj = err as any;
+      console.error("Error reading data:", errorObj?.message);
     }
   };
 
-  // useEffect is a built-in sensor that runs our fetch function once when the website opens
-  useEffect(() => {
-    fetchTodayWater();
-  }, []);
-
-
-  // --- 2. DATABASE SAVE: Insert a new row into our cloud table ---
+  // --- 4. DATABASE SAVE: Stamp entries with owner data ---
   const saveWaterEntry = async (amount) => {
     try {
       const { error } = await supabase
         .from('water_entries')
-        .insert([{ amount_ml: amount }]);
+        .insert([{ amount_ml: amount }]); // user_id is stamped automatically by auth.uid() now!
 
       if (error) throw error;
-
-      // Re-calculate local display total
       setWaterIntake((prev) => Math.max(0, prev + amount));
     } catch (err) {
-      console.error("Database save error:", err.message);
+      const errorObj = err as any;
+      console.error("Database save error:", errorObj?.message);
     }
   };
 
-  // --- 3. DATABASE RESET: Clear all entries from the cloud table ---
   const resetWaterEntries = async () => {
     try {
       const { error } = await supabase
         .from('water_entries')
         .delete()
-        .neq('id', 0); // Deletes all rows where ID is not 0 (which is everything)
+        .neq('id', 0);
 
       if (error) throw error;
       setWaterIntake(0);
     } catch (err) {
-      console.error("Database reset error:", err.message);
+      const errorObj = err as any;
+      console.error("Database reset error:", errorObj?.message);
     }
   };
 
   const handleQuickAdd = async (amount) => {
     await saveWaterEntry(amount);
-    setChatHistory((prev) => [...prev, { sender: 'agent', text: `Logged ${amount}ml directly to cloud memory!` }]);
+    setChatHistory((prev) => [...prev, { sender: 'agent', text: `Logged ${amount}ml to your private account!` }]);
   };
 
   const handleSendMessage = async (e) => {
@@ -94,7 +142,6 @@ export default function Home() {
         await saveWaterEntry(data.amount_ml);
       } 
       else if (data.action === 'decrease' && data.amount_ml > 0) {
-        // To decrease water level, we save a negative row entry (e.g., -250ml)
         await saveWaterEntry(-data.amount_ml);
       } 
       else if (data.action === 'reset') {
@@ -105,19 +152,77 @@ export default function Home() {
 
     } catch (error) {
       console.error("AI Fetch Failure:", error);
-      setChatHistory((prev) => [...prev, { sender: 'agent', text: "Sorry, I had trouble connecting to my server. Please try again!" }]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // --- SCREEN CONDITIONAL: If user is not logged in, show Auth Portal ---
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
+        <div className="w-full max-w-md bg-slate-800 rounded-[30px] p-8 shadow-2xl border border-slate-700 text-center">
+          <h2 className="text-3xl font-extrabold text-white tracking-wide mb-2">HydroAgent AI</h2>
+          <p className="text-sm text-slate-400 mb-6">Create an account to securely isolate your tracking stats.</p>
+          
+          <form onSubmit={handleAuth} className="space-y-4 text-left">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Email Address</label>
+              <input 
+                type="email" 
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Password</label>
+              <input 
+                type="password" 
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {authError && <p className="text-xs text-red-400 bg-red-900/30 p-3 rounded-lg border border-red-800">{authError}</p>}
+
+            <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white py-3.5 rounded-xl font-semibold text-sm shadow-lg transition-all active:scale-95">
+              {authMode === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-700/50 text-xs text-slate-400">
+            {authMode === 'login' ? (
+              <p>Need a private account? <button onClick={() => setAuthMode('signup')} className="text-sky-400 font-bold hover:underline">Sign Up</button></p>
+            ) : (
+              <p>Already have an account? <button onClick={() => setAuthMode('login')} className="text-sky-400 font-bold hover:underline">Sign In</button></p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- MAIN TRACKING APP COMPONENT (Only accessible once signed in) ---
   return (
     <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative">
         
-        <div className="p-6 text-center text-white border-b border-slate-700 bg-slate-850">
-          <h1 className="text-2xl font-bold tracking-wide">HydroAgent AI</h1>
-          <p className="text-xs text-slate-400 mt-1">Smart Hydration Companion</p>
+        {/* Header Dashboard with Logout Action */}
+        <div className="p-5 text-center text-white border-b border-slate-700 bg-slate-850 flex justify-between items-center px-6">
+          <div className="w-6"></div> {/* Spacer balance element */}
+          <div>
+            <h1 className="text-xl font-bold tracking-wide">HydroAgent AI</h1>
+            <p className="text-[10px] text-slate-400">Private Account Dashboard</p>
+          </div>
+          <button onClick={handleSignOut} className="text-xs font-semibold text-slate-400 bg-slate-700/60 hover:bg-slate-600 px-3 py-1.5 rounded-xl border border-slate-600 transition-all">
+            Exit
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
