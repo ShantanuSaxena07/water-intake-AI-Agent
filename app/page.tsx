@@ -20,11 +20,22 @@ export default function Home() {
     { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Your entries are safely secured to your private account!' }
   ]);
 
-  // --- NEW: History View State Controls ---
-  const [showHistory, setShowHistory] = useState(false);
+  // --- View State Controls ---
+  const [currentTab, setCurrentTab] = useState<'main' | 'history' | 'schedule'>('main');
   const [weeklyHistory, setWeeklyHistory] = useState<any[]>([]);
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
+
+  // --- Dynamic Schedule Generation Logic ---
+  // Divides the user's custom target into 6 smart target checkpoints throughout the day
+  const scheduleSlots = [
+    { time: '08:00 AM', label: 'Morning Wakeup', pct: 0.15 },
+    { time: '11:00 AM', label: 'Mid-Morning Boost', pct: 0.35 },
+    { time: '01:30 PM', label: 'Post-Lunch Hydration', pct: 0.55 },
+    { time: '04:00 PM', label: 'Mid-Afternoon Refresh', pct: 0.75 },
+    { time: '07:00 PM', label: 'Dinner Companion', pct: 0.90 },
+    { time: '09:30 PM', label: 'Night Wind-Down', pct: 1.00 },
+  ];
 
   // --- 1. AUTH MONITOR ---
   useEffect(() => {
@@ -39,7 +50,6 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Run database syncs only when a user successfully logs in
   useEffect(() => {
     if (user) {
       fetchOrCreateProfile();
@@ -138,7 +148,6 @@ export default function Home() {
     }
   };
 
-  // --- NEW LOGIC: Fetch past 7 days of data and aggregate totals by day ---
   const fetchWeeklyHistory = async () => {
     try {
       const sevenDaysAgo = new Date();
@@ -153,7 +162,6 @@ export default function Home() {
 
       if (error) throw error;
 
-      // Group and sum micro-entries by calendar date
       const groups: { [key: string]: number } = {};
       
       data.forEach((entry: any) => {
@@ -165,7 +173,6 @@ export default function Home() {
         groups[dateKey] = (groups[dateKey] || 0) + entry.amount_ml;
       });
 
-      // Convert grouped object to array layout for rendering
       const formattedHistory = Object.keys(groups).map(dateStr => ({
         date: dateStr,
         total: groups[dateStr]
@@ -186,7 +193,7 @@ export default function Home() {
 
       if (error) throw error;
       setWaterIntake((prev) => Math.max(0, prev + amount));
-      fetchWeeklyHistory(); // Refresh history metrics
+      fetchWeeklyHistory(); 
     } catch (err) {
       const errorObj = err as any;
       console.error("Database save error:", errorObj?.message);
@@ -233,10 +240,7 @@ export default function Home() {
       const data = await response.json();
 
       if (data.action === 'log' && data.amount_ml > 0) {
-        await saveWaterEntry(data.amount_ml);
-      } 
-      else if (data.action === 'decrease' && data.amount_ml > 0) {
-        await saveWaterEntry(-data.amount_ml);
+        await saveWaterEntry(data.action === 'decrease' ? -data.amount_ml : data.amount_ml);
       } 
       else if (data.action === 'reset') {
         await resetWaterEntries();
@@ -307,42 +311,38 @@ export default function Home() {
     <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative">
         
-        {/* Header Dashboard Navigation */}
-        <div className="p-5 text-center text-white border-b border-slate-700 bg-slate-850 flex justify-between items-center px-6">
-          {/* NEW: History Toggle Switch Button */}
-          <button 
-            onClick={() => setShowHistory(!showHistory)} 
-            className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
-              showHistory 
-                ? 'bg-sky-600 border-sky-500 text-white' 
-                : 'bg-slate-700/60 border-slate-600 text-slate-400 hover:bg-slate-600'
-            }`}
-          >
-            {showHistory ? 'Main' : 'History'}
-          </button>
-          
-          <div>
-            <h1 className="text-xl font-bold tracking-wide">HydroAgent AI</h1>
-            <p className="text-[10px] text-slate-400">Private Account Dashboard</p>
+        {/* Header Dashboard Navigation with 3 Tabs */}
+        <div className="p-4 text-center text-white border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-lg font-bold tracking-wide">HydroAgent AI</h1>
+            <button onClick={handleSignOut} className="text-[11px] font-semibold text-slate-400 bg-slate-700/60 hover:bg-slate-600 px-2.5 py-1.5 rounded-xl border border-slate-600 transition-all">
+              Exit
+            </button>
           </div>
           
-          <button onClick={handleSignOut} className="text-xs font-semibold text-slate-400 bg-slate-700/60 hover:bg-slate-600 px-3 py-1.5 rounded-xl border border-slate-600 transition-all">
-            Exit
-          </button>
+          {/* Sub Navigation Bar Tab Pill Triggers */}
+          <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-xl text-xs font-medium border border-slate-700/40">
+            <button onClick={() => setCurrentTab('main')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'main' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+              Tracker
+            </button>
+            <button onClick={() => setCurrentTab('schedule')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'schedule' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+              Timeline
+            </button>
+            <button onClick={() => setCurrentTab('history')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'history' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+              History
+            </button>
+          </div>
         </div>
 
-        {/* VIEW CONDITIONAL: Display the aggregated history view if active */}
-        {showHistory ? (
+        {/* CONDITION 1: aggregated history view */}
+        {currentTab === 'history' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <div className="border-b border-slate-700 pb-2">
-              <h2 className="text-lg font-bold text-white">7-Day Intake History</h2>
+              <h2 className="text-base font-bold text-white">7-Day Intake History</h2>
               <p className="text-xs text-slate-400">Clean aggregated summary of daily water totals</p>
             </div>
-            
             {weeklyHistory.length === 0 ? (
-              <div className="text-center text-slate-500 text-sm py-12 italic">
-                No hydration records found for the past 7 days.
-              </div>
+              <div className="text-center text-slate-500 text-sm py-12 italic">No hydration records found.</div>
             ) : (
               <div className="space-y-3 pt-2">
                 {weeklyHistory.map((item, index) => (
@@ -354,16 +354,55 @@ export default function Home() {
               </div>
             )}
           </div>
-        ) : (
-          /* STANDARD TRACKER VIEW MODE */
+        )}
+
+        {/* CONDITION 2: STYLISH SCHEDULE TIMELINE VIEW */}
+        {currentTab === 'schedule' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="border-b border-slate-700 pb-2">
+              <h2 className="text-base font-bold text-white">Hydration Schedule</h2>
+              <p className="text-xs text-slate-400">Timed interval goals scaled to match your target</p>
+            </div>
+
+            <div className="relative border-l-2 border-slate-700 ml-4 pl-6 space-y-6 pt-4">
+              {scheduleSlots.map((slot, index) => {
+                const requiredAmount = Math.round(dailyGoal * slot.pct);
+                const isMet = waterIntake >= requiredAmount;
+
+                return (
+                  <div key={index} className="relative group">
+                    {/* Pulsing indicator node status icon */}
+                    <div className={`absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-all ${
+                      isMet ? 'bg-sky-500 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]' : 'bg-slate-800 border-slate-600'
+                    }`} />
+                    
+                    <div className="bg-slate-900/40 border border-slate-700/40 rounded-xl p-3 shadow-sm flex justify-between items-center">
+                      <div>
+                        <span className="text-xs font-bold text-sky-400 block tracking-wide">{slot.time}</span>
+                        <span className="text-sm font-medium text-slate-200 block mt-0.5">{slot.label}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-slate-400 block font-medium">Target Stack</span>
+                        <span className={`text-xs font-bold ${isMet ? 'text-emerald-400' : 'text-slate-300'}`}>
+                          {isMet ? '✓ Achieved' : `${requiredAmount} ml`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* CONDITION 3: STANDARD MAIN TRACKER DASHBOARD */}
+        {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
-            
             <div className="flex flex-col items-center justify-center relative my-4">
               <div className="relative w-48 h-48 flex items-center justify-center">
                 <div className="absolute inset-0 rounded-full border-[12px] border-slate-700"></div>
                 <div className="text-center z-10 p-2">
                   <span className="text-4xl font-extrabold text-sky-400 block">{waterIntake}</span>
-                  
                   {isEditingGoal ? (
                     <input
                       type="number"
@@ -379,7 +418,6 @@ export default function Home() {
                     <span 
                       onClick={() => setIsEditingGoal(true)}
                       className="text-xs text-slate-400 uppercase tracking-widest font-semibold cursor-pointer border-b border-dashed border-slate-500 hover:text-sky-400 transition-all block mt-1"
-                      title="Click to edit target"
                     >
                       of {dailyGoal} ml
                     </span>
@@ -427,12 +465,11 @@ export default function Home() {
                 )}
               </div>
             </div>
-
           </div>
         )}
 
-        {/* Message Input Bar (Remains anchored along bottom edge) */}
-        <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md">
+        {/* Message Input Bar */}
+        <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md z-30">
           <input 
             type="text" 
             value={chatMessage}
