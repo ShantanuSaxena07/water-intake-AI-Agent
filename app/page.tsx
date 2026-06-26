@@ -7,12 +7,13 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authMode, setAuthMode] = useState('login'); 
   const [authError, setAuthError] = useState('');
 
   // --- App Tracker State Variables ---
   const [waterIntake, setWaterIntake] = useState(0); 
-  const dailyGoal = 2500; // We will make this adjustable in the next step!
+  const [dailyGoal, setDailyGoal] = useState(2500); // Dynamic goal state variable
+  const [isEditingGoal, setIsEditingGoal] = useState(false); // Controls edit input visibility
   const [chatMessage, setChatMessage] = useState(''); 
   const [isLoading, setIsLoading] = useState(false); 
   const [chatHistory, setChatHistory] = useState([
@@ -21,14 +22,12 @@ export default function Home() {
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
 
-  // --- 1. AUTH MONITOR: Check if a user is logged in automatically ---
+  // --- 1. AUTH MONITOR ---
   useEffect(() => {
-    // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
 
-    // Listen live for sign-in or sign-out changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -36,16 +35,64 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Run database fetch only when a user successfully authenticates
+  // Run database syncs only when a user successfully logs in
   useEffect(() => {
     if (user) {
+      fetchOrCreateProfile();
       fetchTodayWater();
     } else {
       setWaterIntake(0);
+      setDailyGoal(2500);
     }
   }, [user]);
 
-  // --- 2. AUTH HANDLERS: Sign Up & Sign In functions ---
+  // --- 2. DYNAMIC PROFILE SYNC: Read or Create custom target goal in cloud ---
+  const fetchOrCreateProfile = async () => {
+    try {
+      // Try to read existing target goal profile row
+      let { data, error } = await supabase
+        .from('user_profiles')
+        .select('daily_goal_ml')
+        .single();
+
+      // If no profile entry exists yet for this new user, create a default one
+      if (error && error.code === 'PGRST116') {
+        const { data: newProfile, error: insertError } = await supabase
+          .from('user_profiles')
+          .insert([{ id: user.id, daily_goal_ml: 2500 }])
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        if (newProfile) setDailyGoal(newProfile.daily_goal_ml);
+      } else if (error) {
+        throw error;
+      } else if (data) {
+        setDailyGoal(data.daily_goal_ml);
+      }
+    } catch (err) {
+      const errorObj = err as any;
+      console.error("Profile sync error:", errorObj?.message);
+    }
+  };
+
+  // Update target goal row in database
+  const updateDailyGoalInCloud = async (newGoal: number) => {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ daily_goal_ml: newGoal })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      setDailyGoal(newGoal);
+      setIsEditingGoal(false);
+    } catch (err) {
+      const errorObj = err as any;
+      console.error("Failed to update goal:", errorObj?.message);
+    }
+  };
+
   const handleAuth = async (e: any) => {
     e.preventDefault();
     setAuthError('');
@@ -68,7 +115,6 @@ export default function Home() {
     await supabase.auth.signOut();
   };
 
-  // --- 3. DATABASE FETCH: Read entries belonging ONLY to the logged in user ---
   const fetchTodayWater = async () => {
     try {
       const { data, error } = await supabase
@@ -85,12 +131,11 @@ export default function Home() {
     }
   };
 
-  // --- 4. DATABASE SAVE: Stamp entries with owner data ---
   const saveWaterEntry = async (amount: number) => {
     try {
       const { error } = await supabase
         .from('water_entries')
-        .insert([{ amount_ml: amount }]); // user_id is stamped automatically by auth.uid() now!
+        .insert([{ amount_ml: amount }]); 
 
       if (error) throw error;
       setWaterIntake((prev) => Math.max(0, prev + amount));
@@ -157,7 +202,6 @@ export default function Home() {
     }
   };
 
-  // --- SCREEN CONDITIONAL: If user is not logged in, show Auth Portal ---
   if (!user) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
@@ -210,14 +254,12 @@ export default function Home() {
     );
   }
 
-  // --- MAIN TRACKING APP COMPONENT (Only accessible once signed in) ---
   return (
     <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative">
         
-        {/* Header Dashboard with Logout Action */}
         <div className="p-5 text-center text-white border-b border-slate-700 bg-slate-850 flex justify-between items-center px-6">
-          <div className="w-6"></div> {/* Spacer balance element */}
+          <div className="w-6"></div>
           <div>
             <h1 className="text-xl font-bold tracking-wide">HydroAgent AI</h1>
             <p className="text-[10px] text-slate-400">Private Account Dashboard</p>
@@ -229,12 +271,34 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
           
+          {/* Circular Tracker Block */}
           <div className="flex flex-col items-center justify-center relative my-4">
             <div className="relative w-48 h-48 flex items-center justify-center">
               <div className="absolute inset-0 rounded-full border-[12px] border-slate-700"></div>
-              <div className="text-center z-10">
+              <div className="text-center z-10 p-2">
                 <span className="text-4xl font-extrabold text-sky-400 block">{waterIntake}</span>
-                <span className="text-xs text-slate-400 uppercase tracking-widest font-semibold">of {dailyGoal} ml</span>
+                
+                {/* UPGRADED TARGET SEGMENT: Interactive input trigger */}
+                {isEditingGoal ? (
+                  <input
+                    type="number"
+                    defaultValue={dailyGoal}
+                    onBlur={(e: any) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
+                    onKeyDown={(e: any) => {
+                      if (e.key === 'Enter') updateDailyGoalInCloud(Number(e.target.value) || 2500);
+                    }}
+                    autoFocus
+                    className="w-20 bg-slate-950 border border-sky-500 rounded text-center text-xs text-white p-0.5 mt-1 font-semibold"
+                  />
+                ) : (
+                  <span 
+                    onClick={() => setIsEditingGoal(true)}
+                    className="text-xs text-slate-400 uppercase tracking-widest font-semibold cursor-pointer border-b border-dashed border-slate-500 hover:text-sky-400 transition-all block mt-1"
+                    title="Click to edit target"
+                  >
+                    of {dailyGoal} ml
+                  </span>
+                )}
               </div>
             </div>
             <div className="mt-4 bg-slate-700/50 px-4 py-1.5 rounded-full text-xs font-medium text-sky-300">
