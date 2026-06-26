@@ -4,7 +4,7 @@ import { supabase } from './lib/supabase';
 
 export default function Home() {
   // --- Auth State Variables ---
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
