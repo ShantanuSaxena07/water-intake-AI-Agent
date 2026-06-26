@@ -12,13 +12,17 @@ export default function Home() {
 
   // --- App Tracker State Variables ---
   const [waterIntake, setWaterIntake] = useState(0); 
-  const [dailyGoal, setDailyGoal] = useState(2500); // Dynamic goal state variable
-  const [isEditingGoal, setIsEditingGoal] = useState(false); // Controls edit input visibility
+  const [dailyGoal, setDailyGoal] = useState(2500); 
+  const [isEditingGoal, setIsEditingGoal] = useState(false); 
   const [chatMessage, setChatMessage] = useState(''); 
   const [isLoading, setIsLoading] = useState(false); 
   const [chatHistory, setChatHistory] = useState([
     { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Your entries are safely secured to your private account!' }
   ]);
+
+  // --- NEW: History View State Controls ---
+  const [showHistory, setShowHistory] = useState(false);
+  const [weeklyHistory, setWeeklyHistory] = useState<any[]>([]);
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
 
@@ -40,22 +44,22 @@ export default function Home() {
     if (user) {
       fetchOrCreateProfile();
       fetchTodayWater();
+      fetchWeeklyHistory();
     } else {
       setWaterIntake(0);
       setDailyGoal(2500);
+      setWeeklyHistory([]);
     }
   }, [user]);
 
-  // --- 2. DYNAMIC PROFILE SYNC: Read or Create custom target goal in cloud ---
+  // --- 2. DYNAMIC PROFILE SYNC ---
   const fetchOrCreateProfile = async () => {
     try {
-      // Try to read existing target goal profile row
       let { data, error } = await supabase
         .from('user_profiles')
         .select('daily_goal_ml')
         .single();
 
-      // If no profile entry exists yet for this new user, create a default one
       if (error && error.code === 'PGRST116') {
         const { data: newProfile, error: insertError } = await supabase
           .from('user_profiles')
@@ -76,7 +80,6 @@ export default function Home() {
     }
   };
 
-  // Update target goal row in database
   const updateDailyGoalInCloud = async (newGoal: number) => {
     try {
       const { error } = await supabase
@@ -117,9 +120,13 @@ export default function Home() {
 
   const fetchTodayWater = async () => {
     try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
       const { data, error } = await supabase
         .from('water_entries')
-        .select('amount_ml');
+        .select('amount_ml')
+        .gte('created_at', todayStart.toISOString()); 
 
       if (error) throw error;
 
@@ -131,6 +138,46 @@ export default function Home() {
     }
   };
 
+  // --- NEW LOGIC: Fetch past 7 days of data and aggregate totals by day ---
+  const fetchWeeklyHistory = async () => {
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from('water_entries')
+        .select('amount_ml, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Group and sum micro-entries by calendar date
+      const groups: { [key: string]: number } = {};
+      
+      data.forEach((entry: any) => {
+        const dateKey = new Date(entry.created_at).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric'
+        });
+        groups[dateKey] = (groups[dateKey] || 0) + entry.amount_ml;
+      });
+
+      // Convert grouped object to array layout for rendering
+      const formattedHistory = Object.keys(groups).map(dateStr => ({
+        date: dateStr,
+        total: groups[dateStr]
+      }));
+
+      setWeeklyHistory(formattedHistory);
+    } catch (err) {
+      const errorObj = err as any;
+      console.error("History fetch failure:", errorObj?.message);
+    }
+  };
+
   const saveWaterEntry = async (amount: number) => {
     try {
       const { error } = await supabase
@@ -139,6 +186,7 @@ export default function Home() {
 
       if (error) throw error;
       setWaterIntake((prev) => Math.max(0, prev + amount));
+      fetchWeeklyHistory(); // Refresh history metrics
     } catch (err) {
       const errorObj = err as any;
       console.error("Database save error:", errorObj?.message);
@@ -154,6 +202,7 @@ export default function Home() {
 
       if (error) throw error;
       setWaterIntake(0);
+      fetchWeeklyHistory();
     } catch (err) {
       const errorObj = err as any;
       console.error("Database reset error:", errorObj?.message);
@@ -258,93 +307,131 @@ export default function Home() {
     <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative">
         
+        {/* Header Dashboard Navigation */}
         <div className="p-5 text-center text-white border-b border-slate-700 bg-slate-850 flex justify-between items-center px-6">
-          <div className="w-6"></div>
+          {/* NEW: History Toggle Switch Button */}
+          <button 
+            onClick={() => setShowHistory(!showHistory)} 
+            className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all ${
+              showHistory 
+                ? 'bg-sky-600 border-sky-500 text-white' 
+                : 'bg-slate-700/60 border-slate-600 text-slate-400 hover:bg-slate-600'
+            }`}
+          >
+            {showHistory ? 'Main' : 'History'}
+          </button>
+          
           <div>
             <h1 className="text-xl font-bold tracking-wide">HydroAgent AI</h1>
             <p className="text-[10px] text-slate-400">Private Account Dashboard</p>
           </div>
+          
           <button onClick={handleSignOut} className="text-xs font-semibold text-slate-400 bg-slate-700/60 hover:bg-slate-600 px-3 py-1.5 rounded-xl border border-slate-600 transition-all">
             Exit
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
-          
-          {/* Circular Tracker Block */}
-          <div className="flex flex-col items-center justify-center relative my-4">
-            <div className="relative w-48 h-48 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-[12px] border-slate-700"></div>
-              <div className="text-center z-10 p-2">
-                <span className="text-4xl font-extrabold text-sky-400 block">{waterIntake}</span>
-                
-                {/* UPGRADED TARGET SEGMENT: Interactive input trigger */}
-                {isEditingGoal ? (
-                  <input
-                    type="number"
-                    defaultValue={dailyGoal}
-                    onBlur={(e: any) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
-                    onKeyDown={(e: any) => {
-                      if (e.key === 'Enter') updateDailyGoalInCloud(Number(e.target.value) || 2500);
-                    }}
-                    autoFocus
-                    className="w-20 bg-slate-950 border border-sky-500 rounded text-center text-xs text-white p-0.5 mt-1 font-semibold"
-                  />
-                ) : (
-                  <span 
-                    onClick={() => setIsEditingGoal(true)}
-                    className="text-xs text-slate-400 uppercase tracking-widest font-semibold cursor-pointer border-b border-dashed border-slate-500 hover:text-sky-400 transition-all block mt-1"
-                    title="Click to edit target"
-                  >
-                    of {dailyGoal} ml
-                  </span>
+        {/* VIEW CONDITIONAL: Display the aggregated history view if active */}
+        {showHistory ? (
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="border-b border-slate-700 pb-2">
+              <h2 className="text-lg font-bold text-white">7-Day Intake History</h2>
+              <p className="text-xs text-slate-400">Clean aggregated summary of daily water totals</p>
+            </div>
+            
+            {weeklyHistory.length === 0 ? (
+              <div className="text-center text-slate-500 text-sm py-12 italic">
+                No hydration records found for the past 7 days.
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                {weeklyHistory.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center bg-slate-900/60 border border-slate-700/50 rounded-2xl p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-slate-200">{item.date}</span>
+                    <span className="text-sm font-bold text-sky-400">{(item.total / 1000).toFixed(1)} Litres</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* STANDARD TRACKER VIEW MODE */
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
+            
+            <div className="flex flex-col items-center justify-center relative my-4">
+              <div className="relative w-48 h-48 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-[12px] border-slate-700"></div>
+                <div className="text-center z-10 p-2">
+                  <span className="text-4xl font-extrabold text-sky-400 block">{waterIntake}</span>
+                  
+                  {isEditingGoal ? (
+                    <input
+                      type="number"
+                      defaultValue={dailyGoal}
+                      onBlur={(e: any) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
+                      onKeyDown={(e: any) => {
+                        if (e.key === 'Enter') updateDailyGoalInCloud(Number(e.target.value) || 2500);
+                      }}
+                      autoFocus
+                      className="w-20 bg-slate-950 border border-sky-500 rounded text-center text-xs text-white p-0.5 mt-1 font-semibold"
+                    />
+                  ) : (
+                    <span 
+                      onClick={() => setIsEditingGoal(true)}
+                      className="text-xs text-slate-400 uppercase tracking-widest font-semibold cursor-pointer border-b border-dashed border-slate-500 hover:text-sky-400 transition-all block mt-1"
+                      title="Click to edit target"
+                    >
+                      of {dailyGoal} ml
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 bg-slate-700/50 px-4 py-1.5 rounded-full text-xs font-medium text-sky-300">
+                {Math.round(percentage)}% Completed
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Quick Log</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <button onClick={() => handleQuickAdd(250)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md">
+                  +250ml <span className="block text-[10px] text-slate-400 font-normal">Glass</span>
+                </button>
+                <button onClick={() => handleQuickAdd(500)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md">
+                  +500ml <span className="block text-[10px] text-slate-400 font-normal">Bottle</span>
+                </button>
+                <button onClick={() => handleQuickAdd(750)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md">
+                  +750ml <span className="block text-[10px] text-slate-400 font-normal">Flask</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Agent Chat</h3>
+              <div className="bg-slate-900/60 rounded-2xl p-4 h-48 overflow-y-auto space-y-3 text-sm border border-slate-700/50">
+                {chatHistory.map((msg: any, idx: number) => (
+                  <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm leading-relaxed ${
+                      msg.sender === 'user' ? 'bg-sky-600 text-white rounded-tr-none' : 'bg-slate-700 text-slate-200 rounded-tl-none'
+                    }`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-slate-700/50 text-slate-400 rounded-2xl rounded-tl-none px-4 py-2 text-xs italic animate-pulse">
+                      Agent is processing...
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="mt-4 bg-slate-700/50 px-4 py-1.5 rounded-full text-xs font-medium text-sky-300">
-              {Math.round(percentage)}% Completed
-            </div>
+
           </div>
+        )}
 
-          <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Quick Log</h3>
-            <div className="grid grid-cols-3 gap-3">
-              <button onClick={() => handleQuickAdd(250)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md">
-                +250ml <span className="block text-[10px] text-slate-400 font-normal">Glass</span>
-              </button>
-              <button onClick={() => handleQuickAdd(500)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md">
-                +500ml <span className="block text-[10px] text-slate-400 font-normal">Bottle</span>
-              </button>
-              <button onClick={() => handleQuickAdd(750)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md">
-                +750ml <span className="block text-[10px] text-slate-400 font-normal">Flask</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Agent Chat</h3>
-            <div className="bg-slate-900/60 rounded-2xl p-4 h-48 overflow-y-auto space-y-3 text-sm border border-slate-700/50">
-              {chatHistory.map((msg: any, idx: number) => (
-                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm leading-relaxed ${
-                    msg.sender === 'user' ? 'bg-sky-600 text-white rounded-tr-none' : 'bg-slate-700 text-slate-200 rounded-tl-none'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-700/50 text-slate-400 rounded-2xl rounded-tl-none px-4 py-2 text-xs italic animate-pulse">
-                    Agent is processing...
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
+        {/* Message Input Bar (Remains anchored along bottom edge) */}
         <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md">
           <input 
             type="text" 
