@@ -3,12 +3,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 
 export default function Home() {
-  // --- Auth State Variables ---
+  // --- Auth & Onboarding State Variables ---
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [authMode, setAuthMode] = useState('login'); 
   const [authError, setAuthError] = useState('');
+  const [emailValidationError, setEmailValidationError] = useState('');
 
   // --- App Tracker State Variables ---
   const [waterIntake, setWaterIntake] = useState(0); 
@@ -28,6 +32,19 @@ export default function Home() {
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
   const isTargetAchieved = percentage >= 100;
+
+  // --- EMAIL REGEX VALIDATOR ---
+  const validateEmailFormat = (inputEmail: string) => {
+    setEmail(inputEmail);
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!inputEmail) {
+      setEmailValidationError('');
+    } else if (!emailRegex.test(inputEmail)) {
+      setEmailValidationError('Please enter a valid email address (e.g., name@domain.com).');
+    } else {
+      setEmailValidationError('');
+    }
+  };
 
   // --- HEALTH-OPTIMIZED DYNAMIC TIMELINE ALGORITHM ---
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
@@ -76,10 +93,16 @@ export default function Home() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        setDisplayName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Hydrator');
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        setDisplayName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Hydrator');
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -95,6 +118,7 @@ export default function Home() {
       setDailyGoal(2500);
       setWeeklyHistory([]);
       setShowPushModal(false);
+      setDisplayName('');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -128,7 +152,6 @@ export default function Home() {
       } else if (data) {
         setDailyGoal(data.daily_goal_ml);
         
-        // A. FETCH TOGGLE STATUS ON LOGIN
         if (data.notifications_enabled !== undefined && data.notifications_enabled !== null) {
           setNotificationsEnabled(data.notifications_enabled);
         }
@@ -151,7 +174,6 @@ export default function Home() {
     }
   };
 
-  // --- B. HANDLE TOGGLE INTERACTIONS ---
   const handleToggleNotifications = async () => {
     const nextState = !notificationsEnabled;
     setNotificationsEnabled(nextState);
@@ -245,11 +267,24 @@ export default function Home() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    if (emailValidationError) {
+      setAuthError('Please fix validation errors before proceeding.');
+      return;
+    }
+
     try {
       if (authMode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error, data } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim() || 'Hydrator'
+            }
+          }
+        });
         if (error) throw error;
-        alert('Check your email inbox for a verification link!');
+        alert('Account initialization successful! Check your email inbox for a verification link!');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -397,48 +432,79 @@ export default function Home() {
   if (!user) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
-        <div className="w-full max-w-md bg-slate-800 rounded-[30px] p-8 shadow-2xl border border-slate-700 text-center">
-          <h2 className="text-3xl font-extrabold text-white tracking-wide mb-2">HydroAgent AI</h2>
-          <p className="text-sm text-slate-400 mb-6">Create an account to securely isolate your tracking stats.</p>
+        <div className="w-full max-w-md bg-slate-800 rounded-[35px] p-8 shadow-2xl border border-slate-700/60 relative overflow-hidden backdrop-blur-md">
           
-          <form onSubmit={handleAuth} className="space-y-4 text-left">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full filter blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-600/10 rounded-full filter blur-3xl pointer-events-none" />
+
+          <h2 className="text-3xl font-black text-white tracking-wide text-center bg-gradient-to-r from-sky-400 to-white bg-clip-text text-transparent">HydroAgent AI</h2>
+          <p className="text-xs text-slate-400 text-center mt-1.5 mb-8">Secure, intelligent pacing tracking dashboard.</p>
+          
+          <form onSubmit={handleAuth} className="space-y-5">
+            {authMode === 'signup' && (
+              <div className="animate-fade-in">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">Your Full Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all placeholder-slate-600"
+                  placeholder="e.g. Shantanu"
+                />
+              </div>
+            )}
+
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Email Address</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">Email Address</label>
               <input 
                 type="email" 
                 required
-                suppressHydrationWarning
                 value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                placeholder="you@example.com"
+                onChange={(e) => validateEmailFormat(e.target.value)}
+                className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 transition-all placeholder-slate-600 ${
+                  emailValidationError ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-sky-500'
+                }`}
+                placeholder="you@domain.com"
               />
+              {emailValidationError && (
+                <p className="text-[11px] text-red-400 mt-1.5 ml-1 font-medium">{emailValidationError}</p>
+              )}
             </div>
+
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Password</label>
-              <input 
-                type="password" 
-                required
-                suppressHydrationWarning
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                placeholder="••••••••"
-              />
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5 px-0.5">Password</label>
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-11 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all placeholder-slate-600"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors focus:outline-none text-xs font-bold uppercase tracking-widest select-none"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
-            {authError && <p className="text-xs text-red-400 bg-red-900/30 p-3 rounded-lg border border-red-800">{authError}</p>}
+            {authError && <p className="text-xs text-red-400 bg-red-900/20 p-3 rounded-xl border border-red-800/40 font-medium">{authError}</p>}
 
-            <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white py-3.5 rounded-xl font-semibold text-sm shadow-lg transition-all active:scale-95">
-              {authMode === 'login' ? 'Sign In' : 'Create Account'}
+            <button type="submit" className="w-full bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white py-3.5 rounded-xl font-bold text-sm shadow-xl transition-all active:scale-98 mt-2">
+              {authMode === 'login' ? 'Sign In Dashboard' : 'Initialize Account'}
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-slate-700/50 text-xs text-slate-400">
+          <div className="mt-6 pt-5 border-t border-slate-700/40 text-center text-xs text-slate-400">
             {authMode === 'login' ? (
-              <p>Need a private account? <button onClick={() => setAuthMode('signup')} className="text-sky-400 font-bold hover:underline">Sign Up</button></p>
+              <p>Need isolated storage? <button onClick={() => { setAuthMode('signup'); setAuthError(''); }} className="text-sky-400 font-bold hover:underline ml-1">Create Account</button></p>
             ) : (
-              <p>Already have an account? <button onClick={() => setAuthMode('login')} className="text-sky-400 font-bold hover:underline">Sign In</button></p>
+              <p>Already registered? <button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-sky-400 font-bold hover:underline ml-1">Sign In</button></p>
             )}
           </div>
         </div>
@@ -516,11 +582,17 @@ export default function Home() {
           </div>
         )}
 
-        <div className="p-4 text-center text-white border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6">
+        {/* TOP COMPACT HEADER SYSTEM WITH CUSTOM PERSONALIZED GREETING INTERFACE */}
+        <div className="p-4 border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-lg font-bold tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
+            <div>
+              <h1 className="text-lg font-black tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
+              {/* THE COOL GREETING ALIGNMENT PLACED PROPERLY BELOW MAIN BRANDING HEADER */}
+              <p className="text-xs font-semibold text-sky-400/90 tracking-wide mt-0.5 select-none">
+                ✨ Welcome back, <span className="text-white capitalize font-bold">{displayName}</span>
+              </p>
+            </div>
             
-            {/* C. LINK IT TO THE UI TOGGLE BUTTON */}
             <div className="flex items-center gap-2.5">
               <span className={`text-[9px] font-bold tracking-widest uppercase transition-colors duration-300 ${notificationsEnabled ? 'text-sky-400' : 'text-slate-500'}`}>
                 Alerts
