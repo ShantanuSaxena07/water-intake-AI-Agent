@@ -68,6 +68,7 @@ export default function Home() {
       let { data, error } = await supabase
         .from('user_profiles')
         .select('daily_goal_ml, push_subscription')
+        .eq('id', user.id)
         .single();
 
       if (error && error.code === 'PGRST116') {
@@ -97,8 +98,7 @@ export default function Home() {
     }
   };
 
-  // --- NEW ADVANCED LOGIC: Register Browser Service Worker & Handshake with Keys ---
-  // --- Register Browser Service Worker & Handshake with Keys ---
+  // --- ADVANCED LOGIC: Register Browser Service Worker & Handshake with Keys ---
   const registerPushNotifications = async () => {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -113,10 +113,10 @@ export default function Home() {
         return;
       }
 
-     // 2. Register our custom sw.js script in the browser thread
+      // 2. Register our custom sw.js script in the browser thread
       await navigator.serviceWorker.register('/sw.js');
       
-      // 🔥 CRUCIAL: Wait until the browser confirms the Service Worker is fully booted and active
+      // Wait until the browser confirms the Service Worker is fully booted and active
       const registration = await navigator.serviceWorker.ready;
       
       // 3. Complete Handshake using your Public VAPID key (with hardcoded string fallback)
@@ -136,11 +136,20 @@ export default function Home() {
         applicationServerKey: outputArray
       });
 
-      // 4. Save this delivery token address directly to their cloud column row!
+      // 4. Fetch true current user session to circumvent local state timing issues
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || user?.id;
+
+      if (!currentUserId) {
+        console.warn("Skipping DB update: No authenticated user ID found.");
+        return;
+      }
+
+      // Save this delivery token address directly to their cloud column row!
       const { error } = await supabase
         .from('user_profiles')
         .update({ push_subscription: subscription })
-        .eq('id', user.id);
+        .eq('id', currentUserId);
 
       if (error) throw error;
 
