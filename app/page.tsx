@@ -28,6 +28,11 @@ export default function Home() {
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
 
+  // --- REFINED MIDDLE-GROUND FLUID RENDERING HEIGHT CALCULATION ---
+  // Caps fluid at a realistic 92% fill mark for the "air gap" design aesthetic during progression,
+  // but triggers a full 100% surge completion layout only when the final daily target is accomplished.
+  const displayPercentage = percentage >= 100 ? 100 : percentage * 0.92;
+
   // --- HEALTH-OPTIMIZED DYNAMIC TIMELINE ALGORITHM ---
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
 
@@ -574,16 +579,15 @@ export default function Home() {
             <div className="flex flex-col items-center justify-center relative my-4">
               <div className="relative w-52 h-52 bg-transparent rounded-full border-4 border-slate-700/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center justify-center overflow-hidden">
                 
-                {/* NATIVE VECTOR ANIMATION LAYER USING SVG HARDWARE-ACCELERATED RIPPLE INTERPOLATION */}
+                {/* SVG RENDERING WITH THE DYNAMIC CLAMPED SCALING LAYER */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
                   <svg 
                     viewBox="0 0 100 100" 
                     className="w-full h-full absolute transition-all duration-1000 ease-out"
-                    style={{ transform: `translateY(${100 - percentage}%)` }}
+                    style={{ transform: `translateY(${100 - displayPercentage}%)` }}
                     preserveAspectRatio="none"
                   >
                     <path d="M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z" fill="url(#water-gradient)">
-                      {/* DYNAMIC WOBBLE COMPONENT LOOPING INFINTELY IN-PLACE */}
                       <animate 
                         attributeName="d" 
                         dur="4s" 
