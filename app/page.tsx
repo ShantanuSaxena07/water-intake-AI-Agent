@@ -105,33 +105,70 @@ export default function Home() {
       if (!user?.id) return;
       let { data, error } = await supabase
         .from('user_profiles')
-        .select('daily_goal_ml, push_subscription')
+        .select('daily_goal_ml, push_subscription, notifications_enabled, timezone')
         .eq('id', user.id)
         .single();
 
       if (error && error.code === 'PGRST116') {
+        const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const { data: newProfile, error: insertError } = await supabase
           .from('user_profiles')
-          .insert([{ id: user.id, daily_goal_ml: 2500 }])
+          .insert([{ id: user.id, daily_goal_ml: 2500, notifications_enabled: true, timezone: clientTz }])
           .select()
           .single();
         
         if (insertError) throw insertError;
         if (newProfile) {
           setDailyGoal(newProfile.daily_goal_ml);
+          setNotificationsEnabled(true);
           if (notificationsEnabled) setShowPushModal(true);
         }
       } else if (error) {
         throw error;
       } else if (data) {
         setDailyGoal(data.daily_goal_ml);
-        if (!data.push_subscription && typeof window !== 'undefined' && window.Notification && Notification.permission !== 'denied' && notificationsEnabled) {
+        
+        // A. FETCH TOGGLE STATUS ON LOGIN
+        if (data.notifications_enabled !== undefined && data.notifications_enabled !== null) {
+          setNotificationsEnabled(data.notifications_enabled);
+        }
+        
+        const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (data.timezone !== clientTz) {
+          await supabase
+            .from('user_profiles')
+            .update({ timezone: clientTz })
+            .eq('id', user.id);
+        }
+
+        if (!data.push_subscription && typeof window !== 'undefined' && window.Notification && Notification.permission !== 'denied' && data.notifications_enabled) {
           setShowPushModal(true);
         }
       }
     } catch (err) {
       const errorObj = err as any;
       console.error("Profile sync error:", errorObj?.message);
+    }
+  };
+
+  // --- B. HANDLE TOGGLE INTERACTIONS ---
+  const handleToggleNotifications = async () => {
+    const nextState = !notificationsEnabled;
+    setNotificationsEnabled(nextState);
+    
+    try {
+      if (!user?.id) return;
+      await supabase
+        .from('user_profiles')
+        .update({ notifications_enabled: nextState })
+        .eq('id', user.id);
+        
+      setChatHistory((prev) => [
+        ...prev, 
+        { sender: 'agent', text: nextState ? '🔔 Smart notification channels enabled!' : '🔕 Notifications successfully muted.' }
+      ]);
+    } catch (err) {
+      console.error("Failed to sync preference status:", err);
     }
   };
 
@@ -483,12 +520,13 @@ export default function Home() {
           <div className="flex justify-between items-center">
             <h1 className="text-lg font-bold tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
             
+            {/* C. LINK IT TO THE UI TOGGLE BUTTON */}
             <div className="flex items-center gap-2.5">
               <span className={`text-[9px] font-bold tracking-widest uppercase transition-colors duration-300 ${notificationsEnabled ? 'text-sky-400' : 'text-slate-500'}`}>
                 Alerts
               </span>
               <button 
-                onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                onClick={handleToggleNotifications}
                 className={`w-9 h-5 rounded-full p-0.5 transition-all duration-300 relative outline-none border border-slate-600/50 ${
                   notificationsEnabled ? 'bg-sky-500/20 border-sky-400/40 shadow-[0_0_10px_rgba(14,165,233,0.2)]' : 'bg-slate-900'
                 }`}
