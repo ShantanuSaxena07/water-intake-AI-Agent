@@ -14,6 +14,12 @@ webpush.setVapidDetails(
 );
 
 export async function GET(request) {
+  // --- SECURITY PASS CHECK ---
+  const authHeader = request.headers.get('X-Cron-Security-Key');
+  if (authHeader !== process.env.CRON_SECRET_KEY) {
+    return NextResponse.json({ error: 'Access Denied: Invalid Security Token' }, { status: 401 });
+  }
+
   try {
     // 1. Fetch only users who have notifications turned ON and have a push token
     const { data: profiles, error: profileError } = await supabaseAdmin
@@ -36,13 +42,13 @@ export async function GET(request) {
       const currentMinutes = userLocalTime.getMinutes();
       const currentDecimalTime = currentHour + currentMinutes / 60;
 
-      // 3. Rebuild the Dynamic Healthcare Timeline for this specific user's target
+      // 3. Rebuild the Dynamic Healthcare Timeline
       let slotsCount = 4;
       if (profile.daily_goal_ml > 1800 && profile.daily_goal_ml <= 3000) slotsCount = 6;
       if (profile.daily_goal_ml > 3000) slotsCount = 8;
 
-      const morningStart = 8; // 08:00 AM
-      const eveningEnd = 21.5; // 09:30 PM
+      const morningStart = 8; 
+      const eveningEnd = 21.5; 
       const totalAvailableHours = eveningEnd - morningStart;
       const intervalDelta = totalAvailableHours / (slotsCount - 1);
 
@@ -51,7 +57,7 @@ export async function GET(request) {
       for (let i = 0; i < slotsCount; i++) {
         const slotHourDecimal = morningStart + (i * intervalDelta);
         
-        // If the current background clock is within 30 minutes of this calculated slot
+        // If current time falls within the 30-minute processing frame of a slot
         if (Math.abs(currentDecimalTime - slotHourDecimal) <= 0.26) {
           matchingSlot = {
             targetPct: (i + 1) / slotsCount,
@@ -62,7 +68,6 @@ export async function GET(request) {
         }
       }
 
-      // If the current time doesn't match any of their personal timeline intervals, skip checking
       if (!matchingSlot) continue;
 
       // 4. Gather today's water data for this user
@@ -80,7 +85,7 @@ export async function GET(request) {
       const totalIntake = entries?.reduce((sum, entry) => sum + entry.amount_ml, 0) || 0;
       const requiredIntakeForSlot = Math.round(profile.daily_goal_ml * matchingSlot.targetPct);
 
-      // 5. If they are behind their personal timeline milestone, alert them!
+      // 5. Fire alert if behind milestone goals
       if (totalIntake < requiredIntakeForSlot) {
         const payload = JSON.stringify({
           title: '🌊 Timeline Checkpoint!',
@@ -108,4 +113,4 @@ export async function GET(request) {
     console.error('Dynamic notification engine error:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-} 
+}
