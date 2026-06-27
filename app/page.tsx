@@ -579,29 +579,35 @@ export default function Home() {
 
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
-            {/* GRADUALLY FILLING HOLLOW COMPOSITE RADIAL CORE */}
+            {/* FIXED GRADUALLY FILLING COMPOSITE CONTAINER VIA CLIP-PATH */}
             <div className="flex flex-col items-center justify-center relative my-4">
               <div className="relative w-52 h-52 bg-transparent rounded-full border-4 border-slate-700/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center justify-center overflow-hidden">
                 
-                {/* BACK LIQUID WAVE LAYER */}
+                {/* DYNAMIC CLIP-PATH BOUNDARY THAT MOVES ONLY ACCORDING TO WATER PERCENTAGE */}
                 <div 
-                  className="absolute w-[220%] h-[220%] bg-blue-600/20 rounded-[42%] left-1/2 transition-all duration-1000 ease-out"
+                  className="absolute inset-0 transition-all duration-1000 ease-out overflow-hidden"
                   style={{
-                    bottom: `calc(${percentage}% - 110%)`,
-                    animation: 'wave-move-back 11s infinite linear'
+                    clipPath: `inset(${100 - percentage}% 0px 0px 0px)`
                   }}
-                />
+                >
+                  {/* BACK LIQUID WAVE LAYER */}
+                  <div 
+                    className="absolute w-[220%] h-[220%] bg-blue-600/30 rounded-[42%] left-1/2 bottom-0 -translate-x-1/2"
+                    style={{
+                      animation: 'wave-move-back 10s infinite linear'
+                    }}
+                  />
 
-                {/* FRONT LIQUID WAVE LAYER */}
-                <div 
-                  className="absolute w-[230%] h-[230%] bg-gradient-to-t from-blue-600/60 to-sky-400/70 rounded-[40%] left-1/2 shadow-[inset_0_8px_16px_rgba(255,255,255,0.15)] transition-all duration-1000 ease-out"
-                  style={{
-                    bottom: `calc(${percentage}% - 115%)`,
-                    animation: 'wave-move-front 6.5s infinite linear'
-                  }}
-                />
+                  {/* FRONT LIQUID WAVE LAYER */}
+                  <div 
+                    className="absolute w-[230%] h-[230%] bg-gradient-to-t from-blue-600/80 to-sky-400/90 rounded-[40%] left-1/2 bottom-0 -translate-x-1/2 shadow-[inset_0_8px_16px_rgba(255,255,255,0.2)]"
+                    style={{
+                      animation: 'wave-move-front 6s infinite linear'
+                    }}
+                  />
+                </div>
 
-                {/* VISUAL COMPONENT LABELS */}
+                {/* TEXT LAYER FLOATING ABOVE EVERYTHING ELSE */}
                 <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
                   <span className="text-5xl font-black text-white block tracking-tight font-mono">{waterIntake}</span>
                   
