@@ -581,20 +581,22 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
             <div className="flex flex-col items-center justify-center relative my-6">
               
-              {/* BOTTLE STEM CONTAINER CAP LAYOUT */}
-              <div className="relative flex flex-col items-center group">
+              {/* BOTTLE STEM LAYOUT CONFIGURATION CONTAINER */}
+              <div className="relative flex flex-col items-center group pt-3">
                 
-                {/* DYNAMIC BOTTLE CAP ASSIGNMENT */}
-                <div className={`w-14 h-5 rounded-t-md transition-all duration-500 z-20 border-b border-slate-950/40 ${
-                  isTargetAchieved 
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_-4px_12px_rgba(16,185,129,0.6)] animate-celebration' 
-                    : 'bg-gradient-to-r from-slate-600 to-slate-500'
-                }`} />
-                <div className={`w-18 h-2 transition-all duration-500 z-20 ${
-                  isTargetAchieved ? 'bg-emerald-600/90' : 'bg-slate-700'
+                {/* DYNAMIC ROTATING HOVER CAP COMPONENT */}
+                <div 
+                  className={`w-14 h-5 rounded-t-md transition-all duration-1000 cubic-bezier(0.4, 0, 0.2, 1) z-20 border-b border-slate-950/40 transform origin-center ${
+                    isTargetAchieved 
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_-4px_12px_rgba(16,185,129,0.6)] translate-y-0 rotate-180 animate-celebration' 
+                      : 'bg-gradient-to-r from-slate-600 to-slate-500 -translate-y-3 rotate-0'
+                  }`} 
+                />
+                <div className={`w-18 h-2 transition-all duration-1000 cubic-bezier(0.4, 0, 0.2, 1) z-20 transform ${
+                  isTargetAchieved ? 'bg-emerald-600/90 translate-y-0' : 'bg-slate-700 -translate-y-3'
                 }`} />
 
-                {/* BROAD WATER BOTTLE GEOMETRY DISPLAY CONTAINER */}
+                {/* BROAD WATER BOTTLE CONTAINER SHAPE */}
                 <div 
                   className={`relative w-56 h-56 mt-[-2px] bg-transparent transition-all duration-700 flex items-center justify-center overflow-hidden border-4 shadow-[0_10px_30px_rgba(0,0,0,0.3)] ${
                     isTargetAchieved 
@@ -606,7 +608,7 @@ export default function Home() {
                   }}
                 >
                   
-                  {/* HARDWARE SVG LIQUID WAVE PATHS */}
+                  {/* VECTOR LIQUID FLOW TRACK ENGINE */}
                   <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
                     <svg 
                       viewBox="0 0 100 100" 
@@ -635,7 +637,7 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* RADIAL DATA OVERLAYS */}
+                  {/* TYPOGRAPHY DATA LAYER */}
                   <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
                     <span className={`text-5xl font-black block tracking-tight font-mono transition-colors duration-500 ${isTargetAchieved ? 'text-emerald-300' : 'text-white'}`}>
                       {waterIntake}
