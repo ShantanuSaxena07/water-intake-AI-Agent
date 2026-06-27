@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "HydroAgent AI",
   description: "AI-Powered Hydration Pacing Companion Isolated Dashboard",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -27,6 +32,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="icon" href="/icon.png" sizes="any" />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
