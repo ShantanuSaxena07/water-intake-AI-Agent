@@ -413,13 +413,13 @@ export default function Home() {
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900/20 [&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-sky-600/50">
         
         <style jsx global>{`
-          @keyframes wave-move-front {
-            0% { transform: translate(-50%, 0) rotate(0deg); }
-            100% { transform: translate(-50%, 0) rotate(360deg); }
+          @keyframes wave-animation-slower {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
           }
-          @keyframes wave-move-back {
-            0% { transform: translate(-50%, 0) rotate(0deg); }
-            100% { transform: translate(-50%, 0) rotate(-360deg); }
+          @keyframes wave-animation-faster {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
           }
           @keyframes text-pulse-blink {
             0%, 100% { opacity: 1; }
@@ -450,6 +450,12 @@ export default function Home() {
           }
           .animate-text-blink {
             animation: text-pulse-blink 1.4s infinite ease-in-out;
+          }
+          .wave-track-1 {
+            animation: wave-animation-slower 12s infinite linear;
+          }
+          .wave-track-2 {
+            animation: wave-animation-faster 7s infinite linear;
           }
         `}</style>
 
@@ -580,32 +586,41 @@ export default function Home() {
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
             <div className="flex flex-col items-center justify-center relative my-4">
+              {/* FIXED CENTER-ALIGNED STRUCTURAL CONTAINER */}
               <div className="relative w-52 h-52 bg-transparent rounded-full border-4 border-slate-700/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center justify-center overflow-hidden">
                 
-                {/* HORIZONTALLY CENTER-ALIGNED CLIP BOUNDARY ENGINE */}
-                <div 
-                  className="absolute inset-0 transition-all duration-1000 ease-out overflow-hidden"
-                  style={{
-                    clipPath: `inset(${100 - percentage}% 0px 0px 0px)`
-                  }}
-                >
-                  {/* BACK LIQUID WAVE LAYER */}
-                  <div 
-                    className="absolute w-[220%] h-[220%] bg-blue-600/30 rounded-[42%] left-1/2 bottom-0 -translate-x-1/2"
-                    style={{
-                      animation: 'wave-move-back 10s infinite linear'
-                    }}
-                  />
-
-                  {/* FRONT LIQUID WAVE LAYER */}
-                  <div 
-                    className="absolute w-[230%] h-[230%] bg-gradient-to-t from-blue-600/80 to-sky-400/90 rounded-[40%] left-1/2 bottom-0 -translate-x-1/2 shadow-[inset_0_8px_16px_rgba(255,255,255,0.2)]"
-                    style={{
-                      animation: 'wave-move-front 6s infinite linear'
-                    }}
-                  />
+                {/* ADVANCED VECTOR GEOMETRIC MASK: GUARANTEES PERFECT MULTI-WAVE SYMMETRY */}
+                <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                  <svg 
+                    viewBox="0 0 100 100" 
+                    className="w-full h-full absolute transition-all duration-1000 ease-out"
+                    style={{ transform: `translateY(${100 - percentage}%)` }}
+                    preserveAspectRatio="none"
+                  >
+                    {/* BACK TRANSITIONAL WAVE STREAM */}
+                    <path 
+                      d="M 0 10 Q 25 20 50 10 T 100 10 L 100 110 L 0 110 Z" 
+                      fill="rgba(37, 99, 235, 0.25)" 
+                      className="wave-track-1"
+                      style={{ width: '200%', transform: 'scaleX(2)' }}
+                    />
+                    {/* FOREGROUND GRADIENT PRINCIPAL WAVE BODY */}
+                    <path 
+                      d="M 0 15 Q 25 5 50 15 T 100 15 L 100 110 L 0 110 Z" 
+                      fill="url(#water-gradient)" 
+                      className="wave-track-2"
+                      style={{ width: '200%', transform: 'scaleX(2)' }}
+                    />
+                    <defs>
+                      <linearGradient id="water-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.85" />
+                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.7" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
                 </div>
 
+                {/* TEXT LAYER FLOATING IN THE STRUCTURAL MIDPOINT */}
                 <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
                   <span className="text-5xl font-black text-white block tracking-tight font-mono">{waterIntake}</span>
                   
