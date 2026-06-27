@@ -440,7 +440,6 @@ export default function Home() {
           .scrollbar-elegant::-webkit-scrollbar-thumb:hover {
             background: rgba(14, 165, 233, 0.6);
           }
-          /* 1. HIDE ARROW SPINNERS NATIVELY ON TARGET INPUT */
           .no-spinners::-webkit-outer-spin-button,
           .no-spinners::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -484,7 +483,6 @@ export default function Home() {
           <div className="flex justify-between items-center">
             <h1 className="text-lg font-bold tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
             
-            {/* 3. EXPLICIT COMPLEMENTARY LABELED ALERTS SWITCH TOGGLE */}
             <div className="flex items-center gap-2.5">
               <span className={`text-[9px] font-bold tracking-widest uppercase transition-colors duration-300 ${notificationsEnabled ? 'text-sky-400' : 'text-slate-500'}`}>
                 Alerts
@@ -542,7 +540,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 4. REPOSITIONED CHAT BOX INTERFERENCE PADDING FOR TIMELINE SCROLL VIEWS */}
         {currentTab === 'schedule' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-36 scrollbar-elegant">
             <div className="border-b border-slate-700 pb-2">
@@ -582,24 +579,24 @@ export default function Home() {
 
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
-            {/* 2. GRADUALLY TRANSLUCENT DYNAMIC FILL WATER RADIAL CORE */}
+            {/* GRADUALLY FILLING HOLLOW COMPOSITE RADIAL CORE */}
             <div className="flex flex-col items-center justify-center relative my-4">
-              <div className="relative w-52 h-52 bg-slate-950/20 rounded-full border-4 border-slate-700/80 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] flex items-center justify-center overflow-hidden">
+              <div className="relative w-52 h-52 bg-transparent rounded-full border-4 border-slate-700/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center justify-center overflow-hidden">
                 
-                {/* BACK GRADIENT LIQUID FILL */}
+                {/* BACK LIQUID WAVE LAYER */}
                 <div 
-                  className="absolute w-[200%] h-[200%] bg-blue-600/20 rounded-[42%] left-1/2 transition-all duration-1000 ease-out"
+                  className="absolute w-[220%] h-[220%] bg-blue-600/20 rounded-[42%] left-1/2 transition-all duration-1000 ease-out"
                   style={{
-                    bottom: `${percentage - 100}%`,
+                    bottom: `calc(${percentage}% - 110%)`,
                     animation: 'wave-move-back 11s infinite linear'
                   }}
                 />
 
-                {/* FRONT GRADIENT LIQUID FILL */}
+                {/* FRONT LIQUID WAVE LAYER */}
                 <div 
-                  className="absolute w-[210%] h-[210%] bg-gradient-to-t from-blue-600/60 to-sky-400/70 rounded-[40%] left-1/2 shadow-[inset_0_8px_16px_rgba(255,255,255,0.15)] transition-all duration-1000 ease-out"
+                  className="absolute w-[230%] h-[230%] bg-gradient-to-t from-blue-600/60 to-sky-400/70 rounded-[40%] left-1/2 shadow-[inset_0_8px_16px_rgba(255,255,255,0.15)] transition-all duration-1000 ease-out"
                   style={{
-                    bottom: `${percentage - 100}%`,
+                    bottom: `calc(${percentage}% - 115%)`,
                     animation: 'wave-move-front 6.5s infinite linear'
                   }}
                 />
@@ -608,7 +605,6 @@ export default function Home() {
                 <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
                   <span className="text-5xl font-black text-white block tracking-tight font-mono">{waterIntake}</span>
                   
-                  {/* 1. FLATTENED PINPOINT BLINKING TEXT TARGET INPUT CAP */}
                   {isEditingGoal ? (
                     <div className="mt-1 bg-slate-900/90 rounded-full px-3 py-1 border border-sky-400/50 shadow-[0_0_15px_rgba(14,165,233,0.3)] flex items-center justify-center">
                       <input
