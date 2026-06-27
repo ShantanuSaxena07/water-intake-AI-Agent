@@ -20,14 +20,13 @@ export default function Home() {
     { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Your entries are safely secured to your private account!' }
   ]);
 
-  // --- View State Controls ---
+  // --- View & Notification State Controls ---
   const [currentTab, setCurrentTab] = useState<'main' | 'history' | 'schedule'>('main');
   const [weeklyHistory, setWeeklyHistory] = useState<any[]>([]);
+  const [showPushModal, setShowPushModal] = useState(false); // Controls advanced push invitation visibility
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
 
-  // --- Dynamic Schedule Generation Logic ---
-  // Divides the user's custom target into 6 smart target checkpoints throughout the day
   const scheduleSlots = [
     { time: '08:00 AM', label: 'Morning Wakeup', pct: 0.15 },
     { time: '11:00 AM', label: 'Mid-Morning Boost', pct: 0.35 },
@@ -59,15 +58,16 @@ export default function Home() {
       setWaterIntake(0);
       setDailyGoal(2500);
       setWeeklyHistory([]);
+      setShowPushModal(false);
     }
   }, [user]);
 
-  // --- 2. DYNAMIC PROFILE SYNC ---
+  // --- 2. DYNAMIC PROFILE SYNC & PROMPT TRIGGER ---
   const fetchOrCreateProfile = async () => {
     try {
       let { data, error } = await supabase
         .from('user_profiles')
-        .select('daily_goal_ml')
+        .select('daily_goal_ml, push_subscription')
         .single();
 
       if (error && error.code === 'PGRST116') {
@@ -78,15 +78,65 @@ export default function Home() {
           .single();
         
         if (insertError) throw insertError;
-        if (newProfile) setDailyGoal(newProfile.daily_goal_ml);
+        if (newProfile) {
+          setDailyGoal(newProfile.daily_goal_ml);
+          setShowPushModal(true); // Brand new user, invite to push notifications immediately!
+        }
       } else if (error) {
         throw error;
       } else if (data) {
         setDailyGoal(data.daily_goal_ml);
+        // If they haven't set up dynamic push subscriptions yet, remind them gently
+        if (!data.push_subscription && Notification.permission !== 'denied') {
+          setShowPushModal(true);
+        }
       }
     } catch (err) {
       const errorObj = err as any;
       console.error("Profile sync error:", errorObj?.message);
+    }
+  };
+
+  // --- NEW ADVANCED LOGIC: Register Browser Service Worker & Handshake with Keys ---
+  const registerPushNotifications = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('Push notifications are not natively supported on this specific browser environment.');
+        return;
+      }
+
+      // 1. Request structural permissions from the host hardware device
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setShowPushModal(false);
+        return;
+      }
+
+      // 2. Register our custom sw.js antenna script in the web browser thread
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      
+      // 3. Complete Handshake using your Public VAPID key
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: publicKey
+      });
+
+      // 4. Save this delivery token address directly to their cloud column row!
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ push_subscription: subscription })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setShowPushModal(false);
+      setChatHistory((prev) => [...prev, { sender: 'agent', text: '🎉 Push alerts successfully linked! I will notify you when the timeline hits.' }]);
+
+    } catch (err) {
+      const errorObj = err as any;
+      console.error("Notification registration crash:", errorObj?.message);
+      alert('Failed to connect subscription lines.');
     }
   };
 
@@ -240,7 +290,10 @@ export default function Home() {
       const data = await response.json();
 
       if (data.action === 'log' && data.amount_ml > 0) {
-        await saveWaterEntry(data.action === 'decrease' ? -data.amount_ml : data.amount_ml);
+        await saveWaterEntry(data.amount_ml);
+      } 
+      else if (data.action === 'decrease' && data.amount_ml > 0) {
+        await saveWaterEntry(-data.amount_ml);
       } 
       else if (data.action === 'reset') {
         await resetWaterEntries();
@@ -311,7 +364,33 @@ export default function Home() {
     <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative">
         
-        {/* Header Dashboard Navigation with 3 Tabs */}
+        {/* NEW PERMISSIONS PROMPT CARD MODAL */}
+        {showPushModal && (
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <div className="bg-slate-800 border border-slate-700 w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl animate-fade-in">
+              <div className="w-12 h-12 bg-sky-500/10 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">🔔</div>
+              <h3 className="text-base font-bold text-white tracking-wide">Enable Reminders?</h3>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Receive advanced smart alerts when timeline intervals trigger to keep your high-performance hydration targets completely on track.
+              </p>
+              <div className="mt-5 space-y-2">
+                <button 
+                  onClick={registerPushNotifications}
+                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs py-2.5 rounded-xl shadow transition-all active:scale-95"
+                >
+                  Yes, Keep Me Hydrated
+                </button>
+                <button 
+                  onClick={() => setShowPushModal(false)}
+                  className="w-full bg-transparent hover:bg-slate-700/40 text-slate-400 font-medium text-xs py-2 rounded-xl transition-all"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-4 text-center text-white border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6">
           <div className="flex justify-between items-center">
             <h1 className="text-lg font-bold tracking-wide">HydroAgent AI</h1>
@@ -320,7 +399,6 @@ export default function Home() {
             </button>
           </div>
           
-          {/* Sub Navigation Bar Tab Pill Triggers */}
           <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-xl text-xs font-medium border border-slate-700/40">
             <button onClick={() => setCurrentTab('main')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'main' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
               Tracker
@@ -334,7 +412,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* CONDITION 1: aggregated history view */}
         {currentTab === 'history' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <div className="border-b border-slate-700 pb-2">
@@ -356,7 +433,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* CONDITION 2: STYLISH SCHEDULE TIMELINE VIEW */}
         {currentTab === 'schedule' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <div className="border-b border-slate-700 pb-2">
@@ -371,7 +447,6 @@ export default function Home() {
 
                 return (
                   <div key={index} className="relative group">
-                    {/* Pulsing indicator node status icon */}
                     <div className={`absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-all ${
                       isMet ? 'bg-sky-500 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]' : 'bg-slate-800 border-slate-600'
                     }`} />
@@ -395,7 +470,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* CONDITION 3: STANDARD MAIN TRACKER DASHBOARD */}
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
             <div className="flex flex-col items-center justify-center relative my-4">
@@ -468,7 +542,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Message Input Bar */}
         <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md z-30">
           <input 
             type="text" 
