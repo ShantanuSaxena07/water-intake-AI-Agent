@@ -338,7 +338,7 @@ export default function Home() {
       const data = await response.json();
 
       if (data.action === 'log' && data.amount_ml > 0) {
-        await saveWaterEntry(data.amount_ml);
+        await saveWaterEntry(data.action === 'log' && data.amount_ml > 0 ? data.amount_ml : 0);
       } 
       else if (data.action === 'decrease' && data.amount_ml > 0) {
         await saveWaterEntry(-data.amount_ml);
@@ -413,17 +413,14 @@ export default function Home() {
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900/20 [&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-sky-600/50">
         
         <style jsx global>{`
-          @keyframes wave-animation-slower {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-          @keyframes wave-animation-faster {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
           @keyframes text-pulse-blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
+          }
+          @keyframes fluid-wobble-base {
+            0% { baseFrequency: 0.015 0.035; }
+            50% { baseFrequency: 0.025 0.045; }
+            100% { baseFrequency: 0.015 0.035; }
           }
           .scrollbar-elegant::-webkit-scrollbar {
             width: 5px;
@@ -451,11 +448,8 @@ export default function Home() {
           .animate-text-blink {
             animation: text-pulse-blink 1.4s infinite ease-in-out;
           }
-          .wave-track-1 {
-            animation: wave-animation-slower 12s infinite linear;
-          }
-          .wave-track-2 {
-            animation: wave-animation-faster 7s infinite linear;
+          .wobble-filter-engine {
+            animation: fluid-wobble-base 5s infinite ease-in-out;
           }
         `}</style>
 
@@ -586,36 +580,46 @@ export default function Home() {
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
             <div className="flex flex-col items-center justify-center relative my-4">
-              {/* FIXED CENTER-ALIGNED STRUCTURAL CONTAINER */}
               <div className="relative w-52 h-52 bg-transparent rounded-full border-4 border-slate-700/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center justify-center overflow-hidden">
                 
-                {/* ADVANCED VECTOR GEOMETRIC MASK: GUARANTEES PERFECT MULTI-WAVE SYMMETRY */}
+                {/* RECALIBRATED SVG GRAPHICS ENGINE FEATURING LOCALIZED TURBULENCE FILTERS FOR TRUE NATURAL WOBBLE EFFECTS */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
                   <svg 
                     viewBox="0 0 100 100" 
                     className="w-full h-full absolute transition-all duration-1000 ease-out"
-                    style={{ transform: `translateY(${100 - percentage}%)` }}
+                    style={{ 
+                      transform: `translateY(${100 - percentage}%)`,
+                      filter: 'url(#fluid-displacement-wobble)'
+                    }}
                     preserveAspectRatio="none"
                   >
-                    {/* BACK TRANSITIONAL WAVE STREAM */}
+                    {/* FIXED DEPTH FLUID LEVEL MESH */}
                     <path 
-                      d="M 0 10 Q 25 20 50 10 T 100 10 L 100 110 L 0 110 Z" 
-                      fill="rgba(37, 99, 235, 0.25)" 
-                      className="wave-track-1"
-                      style={{ width: '200%', transform: 'scaleX(2)' }}
-                    />
-                    {/* FOREGROUND GRADIENT PRINCIPAL WAVE BODY */}
-                    <path 
-                      d="M 0 15 Q 25 5 50 15 T 100 15 L 100 110 L 0 110 Z" 
+                      d="M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z" 
                       fill="url(#water-gradient)" 
-                      className="wave-track-2"
-                      style={{ width: '200%', transform: 'scaleX(2)' }}
                     />
                     <defs>
                       <linearGradient id="water-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.85" />
-                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.7" />
+                        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
+                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.75" />
                       </linearGradient>
+
+                      {/* HIGH-PERFORMANCE NOISE ENGINE FOR IN-PLACE PHYSICAL RIPPLES */}
+                      <filter id="fluid-displacement-wobble" x="0%" y="0%" width="100%" height="100%">
+                        <feTurbulence 
+                          type="fractalNoise" 
+                          numOctaves="2" 
+                          result="noise" 
+                          className="wobble-filter-engine"
+                        />
+                        <feDisplacementMap 
+                          in="SourceGraphic" 
+                          in2="noise" 
+                          scale="4" 
+                          xChannelSelector="R" 
+                          yChannelSelector="G" 
+                        />
+                      </filter>
                     </defs>
                   </svg>
                 </div>
