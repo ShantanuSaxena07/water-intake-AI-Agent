@@ -113,8 +113,11 @@ export default function Home() {
         return;
       }
 
-      // 2. Register our custom sw.js antenna script in the web browser thread
-      const registration = await navigator.serviceWorker.register('/sw.js');
+     // 2. Register our custom sw.js script in the browser thread
+      await navigator.serviceWorker.register('/sw.js');
+      
+      // 🔥 CRUCIAL: Wait until the browser confirms the Service Worker is fully booted and active
+      const registration = await navigator.serviceWorker.ready;
       
       // 3. Complete Handshake using your Public VAPID key (with hardcoded string fallback)
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BMjCfUN_5D-zH3l84gVj2VEGiDY4QuquMGGJEDm7K5NoBtS4DbIVrIwg_bujBJFpBSsa32JMicbC267jJeIgdZc';
