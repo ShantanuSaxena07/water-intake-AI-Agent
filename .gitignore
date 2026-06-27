@@ -43,3 +43,5 @@ next-env.d.ts
 # DB passwords
 /database_password
 /Database_password
+
+/cron password
