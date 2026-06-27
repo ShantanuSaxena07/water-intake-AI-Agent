@@ -27,11 +27,7 @@ export default function Home() {
   const [showPushModal, setShowPushModal] = useState(false); 
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
-
-  // --- REFINED MIDDLE-GROUND FLUID RENDERING HEIGHT CALCULATION ---
-  // Caps fluid at a realistic 92% fill mark for the "air gap" design aesthetic during progression,
-  // but triggers a full 100% surge completion layout only when the final daily target is accomplished.
-  const displayPercentage = percentage >= 100 ? 100 : percentage * 0.92;
+  const isTargetAchieved = percentage >= 100;
 
   // --- HEALTH-OPTIMIZED DYNAMIC TIMELINE ALGORITHM ---
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
@@ -422,6 +418,10 @@ export default function Home() {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
           }
+          @keyframes celebration-glow {
+            0%, 100% { filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.4)) drop-shadow(0 0 12px rgba(14, 165, 233, 0.2)); }
+            50% { filter: drop-shadow(0 0 16px rgba(52, 211, 153, 0.8)) drop-shadow(0 0 24px rgba(14, 165, 233, 0.5)); }
+          }
           .scrollbar-elegant::-webkit-scrollbar {
             width: 5px;
           }
@@ -447,6 +447,9 @@ export default function Home() {
           }
           .animate-text-blink {
             animation: text-pulse-blink 1.4s infinite ease-in-out;
+          }
+          .animate-celebration {
+            animation: celebration-glow 2s infinite ease-in-out;
           }
         `}</style>
 
@@ -576,68 +579,99 @@ export default function Home() {
 
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
-            <div className="flex flex-col items-center justify-center relative my-4">
-              <div className="relative w-52 h-52 bg-transparent rounded-full border-4 border-slate-700/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center justify-center overflow-hidden">
+            <div className="flex flex-col items-center justify-center relative my-6">
+              
+              {/* BOTTLE STEM CONTAINER CAP LAYOUT */}
+              <div className="relative flex flex-col items-center group">
                 
-                {/* SVG RENDERING WITH THE DYNAMIC CLAMPED SCALING LAYER */}
-                <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                  <svg 
-                    viewBox="0 0 100 100" 
-                    className="w-full h-full absolute transition-all duration-1000 ease-out"
-                    style={{ transform: `translateY(${100 - displayPercentage}%)` }}
-                    preserveAspectRatio="none"
-                  >
-                    <path d="M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z" fill="url(#water-gradient)">
-                      <animate 
-                        attributeName="d" 
-                        dur="4s" 
-                        repeatCount="indefinite"
-                        values="
-                          M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z;
-                          M 0 10 Q 25 6 50 12 T 100 10 L 100 110 L 0 110 Z;
-                          M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z
-                        "
-                      />
-                    </path>
-                    <defs>
-                      <linearGradient id="water-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
-                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.75" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
+                {/* DYNAMIC BOTTLE CAP ASSIGNMENT */}
+                <div className={`w-14 h-5 rounded-t-md transition-all duration-500 z-20 border-b border-slate-950/40 ${
+                  isTargetAchieved 
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_-4px_12px_rgba(16,185,129,0.6)] animate-celebration' 
+                    : 'bg-gradient-to-r from-slate-600 to-slate-500'
+                }`} />
+                <div className={`w-18 h-2 transition-all duration-500 z-20 ${
+                  isTargetAchieved ? 'bg-emerald-600/90' : 'bg-slate-700'
+                }`} />
 
-                {/* TEXT LAYER FLOATING IN THE STRUCTURAL MIDPOINT */}
-                <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
-                  <span className="text-5xl font-black text-white block tracking-tight font-mono">{waterIntake}</span>
+                {/* BROAD WATER BOTTLE GEOMETRY DISPLAY CONTAINER */}
+                <div 
+                  className={`relative w-56 h-56 mt-[-2px] bg-transparent transition-all duration-700 flex items-center justify-center overflow-hidden border-4 shadow-[0_10px_30px_rgba(0,0,0,0.3)] ${
+                    isTargetAchieved 
+                      ? 'border-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.3)] animate-celebration' 
+                      : 'border-slate-700/90'
+                  }`}
+                  style={{
+                    borderRadius: '42% 42% 46% 46% / 35% 35% 48% 48%'
+                  }}
+                >
                   
-                  {isEditingGoal ? (
-                    <div className="mt-1 bg-slate-900/90 rounded-full px-3 py-1 border border-sky-400/50 shadow-[0_0_15px_rgba(14,165,233,0.3)] flex items-center justify-center">
-                      <input
-                        type="number"
-                        defaultValue={dailyGoal}
-                        onBlur={(e: React.FocusEvent<HTMLInputElement>) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
-                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                          if (e.key === 'Enter') updateDailyGoalInCloud(Number((e.target as HTMLInputElement).value) || 2500);
-                        }}
-                        autoFocus
-                        className="w-20 bg-transparent text-center text-xs text-white font-black outline-none focus:ring-0 p-0 border-none no-spinners animate-text-blink"
-                      />
-                    </div>
-                  ) : (
-                    <span 
-                      onClick={() => setIsEditingGoal(true)}
-                      className="text-[11px] text-sky-200/90 hover:text-white uppercase tracking-widest font-bold cursor-pointer bg-slate-900/40 hover:bg-slate-900/80 px-3 py-1 rounded-full border border-white/10 hover:border-sky-400/50 transition-all duration-200 block mt-1.5"
+                  {/* HARDWARE SVG LIQUID WAVE PATHS */}
+                  <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                    <svg 
+                      viewBox="0 0 100 100" 
+                      className="w-full h-full absolute transition-all duration-1000 ease-out"
+                      style={{ transform: `translateY(${100 - percentage}%)` }}
+                      preserveAspectRatio="none"
                     >
-                      Target: {dailyGoal} ml ✎
+                      <path d="M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z" fill="url(#water-gradient)">
+                        <animate 
+                          attributeName="d" 
+                          dur="4s" 
+                          repeatCount="indefinite"
+                          values="
+                            M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z;
+                            M 0 10 Q 25 6 50 12 T 100 10 L 100 110 L 0 110 Z;
+                            M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z
+                          "
+                        />
+                      </path>
+                      <defs>
+                        <linearGradient id="water-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor={isTargetAchieved ? "#34d399" : "#38bdf8"} stopOpacity="0.9" />
+                          <stop offset="100%" stopColor={isTargetAchieved ? "#047857" : "#2563eb"} stopOpacity="0.75" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+
+                  {/* RADIAL DATA OVERLAYS */}
+                  <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
+                    <span className={`text-5xl font-black block tracking-tight font-mono transition-colors duration-500 ${isTargetAchieved ? 'text-emerald-300' : 'text-white'}`}>
+                      {waterIntake}
                     </span>
-                  )}
+                    
+                    {isEditingGoal ? (
+                      <div className="mt-1 bg-slate-900/90 rounded-full px-3 py-1 border border-sky-400/50 shadow-[0_0_15px_rgba(14,165,233,0.3)] flex items-center justify-center">
+                        <input
+                          type="number"
+                          defaultValue={dailyGoal}
+                          onBlur={(e: React.FocusEvent<HTMLInputElement>) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
+                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === 'Enter') updateDailyGoalInCloud(Number((e.target as HTMLInputElement).value) || 2500);
+                          }}
+                          autoFocus
+                          className="w-20 bg-transparent text-center text-xs text-white font-black outline-none focus:ring-0 p-0 border-none no-spinners animate-text-blink"
+                        />
+                      </div>
+                    ) : (
+                      <span 
+                        onClick={() => setIsEditingGoal(true)}
+                        className={`text-[11px] uppercase tracking-widest font-bold cursor-pointer bg-slate-900/40 hover:bg-slate-900/80 px-3 py-1 rounded-full border border-white/10 transition-all duration-200 block mt-1.5 ${
+                          isTargetAchieved ? 'text-emerald-200 border-emerald-500/30 hover:border-emerald-400' : 'text-sky-200/90 hover:border-sky-400/50'
+                        }`}
+                      >
+                        Target: {dailyGoal} ml ✎
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 bg-slate-900/60 border border-slate-700/50 px-4 py-1.5 rounded-full text-xs font-bold text-sky-400 shadow-sm">
-                {Math.round(percentage)}% Accounted
+              <div className={`mt-5 border px-4 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all duration-500 ${
+                isTargetAchieved ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400' : 'bg-slate-900/60 border-slate-700/50 text-sky-400'
+              }`}>
+                {isTargetAchieved ? '🎉 TARGET ACCOMPLISHED!' : `${Math.round(percentage)}% Accounted`}
               </div>
             </div>
 
