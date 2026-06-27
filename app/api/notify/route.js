@@ -108,4 +108,4 @@ export async function GET(request) {
     console.error('Dynamic notification engine error:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+} 
