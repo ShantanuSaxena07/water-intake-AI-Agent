@@ -20,6 +20,7 @@ export async function GET() {
     // Fetch all user profiles that have a valid device push token registered
     const { data: profiles, error: profileError } = await supabaseAdmin
       .from('user_profiles')
+      .select('id, push_subscription') // Call select() first to initiate the filtering stream
       .not('push_subscription', 'is', null);
 
     if (profileError) throw profileError;
