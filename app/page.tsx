@@ -17,7 +17,7 @@ export default function Home() {
   const [chatMessage, setChatMessage] = useState(''); 
   const [isLoading, setIsLoading] = useState(false); 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [chatHistory, setChatHistory] = useState([
+  const [chatHistory, setChatHistory] = useState<Array<{ sender: string; text: string }>>([
     { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Your entries are safely secured to your private account!' }
   ]);
 
@@ -28,19 +28,17 @@ export default function Home() {
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
 
-  // --- 4. HEALTH-OPTIMIZED DYNAMIC TIMELINE ALGORITHM ---
+  // --- HEALTH-OPTIMIZED DYNAMIC TIMELINE ALGORITHM ---
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
 
   useEffect(() => {
-    // Generates a medically safe hydration frequency breakdown
-    // Caps hourly intake at 800ml to prevent water intoxication (hyponatremia)
-    let slotsCount = 4; // Low baseline intake frequency
+    let slotsCount = 4; 
     if (dailyGoal > 1800 && dailyGoal <= 3000) slotsCount = 6;
-    if (dailyGoal > 3000) slotsCount = 8; // High baseline frequency for pacing distribution
+    if (dailyGoal > 3000) slotsCount = 8; 
 
     const generatedSlots = [];
-    const morningStart = 8; // 08:00 AM
-    const eveningEnd = 21.5; // 09:30 PM
+    const morningStart = 8; 
+    const eveningEnd = 21.5; 
     const totalAvailableHours = eveningEnd - morningStart;
     const intervalDelta = totalAvailableHours / (slotsCount - 1);
 
@@ -54,7 +52,6 @@ export default function Home() {
       const formattedMinutes = displayMinutes < 10 ? `0${displayMinutes}` : displayMinutes;
       const timeLabel = `${formattedHour}:${formattedMinutes} ${ampm}`;
 
-      // Cumulative volumetric weight scaling matching daily pacing layout curves
       const cumulativePct = (i + 1) / slotsCount;
 
       let label = 'Hydration Window';
@@ -98,11 +95,13 @@ export default function Home() {
       setWeeklyHistory([]);
       setShowPushModal(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // --- 2. DYNAMIC PROFILE SYNC & PROMPT TRIGGER ---
   const fetchOrCreateProfile = async () => {
     try {
+      if (!user?.id) return;
       let { data, error } = await supabase
         .from('user_profiles')
         .select('daily_goal_ml, push_subscription')
@@ -125,7 +124,7 @@ export default function Home() {
         throw error;
       } else if (data) {
         setDailyGoal(data.daily_goal_ml);
-        if (!data.push_subscription && Notification.permission !== 'denied' && notificationsEnabled) {
+        if (!data.push_subscription && typeof window !== 'undefined' && window.Notification && Notification.permission !== 'denied' && notificationsEnabled) {
           setShowPushModal(true);
         }
       }
@@ -154,7 +153,7 @@ export default function Home() {
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BMjCfUN_5D-zH3l84gVj2VEGiDY4QuquMGGJEDm7K5NoBtS4DbIVrIwg_bujBJFpBSsa32JMicbC267jJeIgdZc';
 
       const padding = '='.repeat((4 - (publicKey.length % 4)) % 4);
-      const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const base64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
       const rawData = window.atob(base64);
       const outputArray = new Uint8Array(rawData.length);
       for (let i = 0; i < rawData.length; ++i) {
@@ -190,6 +189,7 @@ export default function Home() {
 
   const updateDailyGoalInCloud = async (newGoal: number) => {
     try {
+      if (!user?.id) return;
       const { error } = await supabase
         .from('user_profiles')
         .update({ daily_goal_ml: newGoal })
@@ -204,7 +204,7 @@ export default function Home() {
     }
   };
 
-  const handleAuth = async (e: any) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
     try {
@@ -319,7 +319,7 @@ export default function Home() {
     setChatHistory((prev) => [...prev, { sender: 'agent', text: `Logged ${amount}ml to your private account!` }]);
   };
 
-  const handleSendMessage = async (e: any) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatMessage.trim() || isLoading) return;
 
@@ -371,7 +371,7 @@ export default function Home() {
                 required
                 suppressHydrationWarning
                 value={email}
-                onChange={(e: any) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 placeholder="you@example.com"
               />
@@ -383,7 +383,7 @@ export default function Home() {
                 required
                 suppressHydrationWarning
                 value={password}
-                onChange={(e: any) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 placeholder="••••••••"
               />
@@ -410,11 +410,8 @@ export default function Home() {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
-      {/* 2 & 6. APPLICATION CONTAINMENT WITH INJECTED UNIFIED SCROLLBAR THEME STYLING */}
-      <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative
-        [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900/20 [&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-sky-600/50">
+      <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900/20 [&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-sky-600/50">
         
-        {/* GLOBAL INJECTED CSS STYLES FOR DYNAMIC WATER WAVE ANIMATIONS */}
         <style jsx global>{`
           @keyframes wave-move-front {
             0% { transform: translate(-50%, 0) rotate(0deg); }
@@ -441,7 +438,6 @@ export default function Home() {
           }
         `}</style>
 
-        {/* PERMISSIONS PROMPT CARD MODAL */}
         {showPushModal && (
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div className="bg-slate-800 border border-slate-700 w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl animate-fade-in">
@@ -472,7 +468,6 @@ export default function Home() {
           <div className="flex justify-between items-center">
             <h1 className="text-lg font-bold tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
             
-            {/* 5. ELEGANT GLOWING NOTIFICATION TOGGLE CONFIGURATION */}
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setNotificationsEnabled(!notificationsEnabled)}
@@ -566,11 +561,9 @@ export default function Home() {
 
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
-            {/* 3. FLUIDIC WAVE ENGINE RADIAL FILL VISUAL CONTAINER */}
             <div className="flex flex-col items-center justify-center relative my-4">
               <div className="relative w-52 h-52 bg-slate-950 rounded-full border-4 border-slate-700 shadow-inner flex items-center justify-center overflow-hidden">
                 
-                {/* BACK FLUID LAYER */}
                 <div 
                   className="absolute w-[200%] h-[200%] bg-sky-600/30 rounded-[42%] left-1/2 transition-all duration-1000 ease-out"
                   style={{
@@ -579,7 +572,6 @@ export default function Home() {
                   }}
                 />
 
-                {/* FRONT FLUID LAYER */}
                 <div 
                   className="absolute w-[210%] h-[210%] bg-gradient-to-t from-sky-600 to-sky-400 rounded-[40%] left-1/2 shadow-[inset_0_10px_20px_rgba(255,255,255,0.2)] transition-all duration-1000 ease-out"
                   style={{
@@ -588,19 +580,17 @@ export default function Home() {
                   }}
                 />
 
-                {/* TEXT CONTAINER FLOATING ABOVE FLUID */}
                 <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_8px_rgba(15,23,42,0.8)]">
                   <span className="text-5xl font-black text-white block tracking-tight font-mono">{waterIntake}</span>
                   
-                  {/* 1. REFINED TARGET CAPSULE INPUT FIELD */}
                   {isEditingGoal ? (
                     <div className="mt-1 bg-slate-900/90 rounded-full px-2 py-1 border border-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.3)] animate-pulse">
                       <input
                         type="number"
                         defaultValue={dailyGoal}
-                        onBlur={(e: any) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
-                        onKeyDown={(e: any) => {
-                          if (e.key === 'Enter') updateDailyGoalInCloud(Number(e.target.value) || 2500);
+                        onBlur={(e: React.FocusEvent<HTMLInputElement>) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                          if (e.key === 'Enter') updateDailyGoalInCloud(Number((e.target as HTMLInputElement).value) || 2500);
                         }}
                         autoFocus
                         className="w-20 bg-transparent text-center text-xs text-white font-bold outline-none focus:ring-0 p-0 border-none"
@@ -637,7 +627,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 2. CHAT FEED WITH COORDINATED ELEGANT SCROLLBARS */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Agent Chat</h3>
               <div className="bg-slate-900/60 rounded-2xl p-4 h-48 overflow-y-auto space-y-3 text-sm border border-slate-700/50 scrollbar-elegant">
@@ -666,7 +655,7 @@ export default function Home() {
           <input 
             type="text" 
             value={chatMessage}
-            onChange={(e: any) => setChatMessage(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChatMessage(e.target.value)}
             disabled={isLoading}
             placeholder={isLoading ? "Thinking..." : "Tell the AI what you drank..."} 
             className="flex-1 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder-slate-500 border border-slate-700 disabled:opacity-50"
