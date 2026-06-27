@@ -98,6 +98,7 @@ export default function Home() {
   };
 
   // --- NEW ADVANCED LOGIC: Register Browser Service Worker & Handshake with Keys ---
+  // --- Register Browser Service Worker & Handshake with Keys ---
   const registerPushNotifications = async () => {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -115,11 +116,21 @@ export default function Home() {
       // 2. Register our custom sw.js antenna script in the web browser thread
       const registration = await navigator.serviceWorker.register('/sw.js');
       
-      // 3. Complete Handshake using your Public VAPID key
-      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      // 3. Complete Handshake using your Public VAPID key (with hardcoded string fallback)
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BMjCfUN_5D-zH3l84gVj2VEGiDY4QuquMGGJEDm7K5NoBtS4DbIVrIwg_bujBJFpBSsa32JMicbC267jJeIgdZc';
+
+      // Convert the base64 VAPID string to a UInt8Array that the browser's PushManager demands
+      const padding = '='.repeat((4 - (publicKey.length % 4)) % 4);
+      const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: publicKey
+        applicationServerKey: outputArray
       });
 
       // 4. Save this delivery token address directly to their cloud column row!
