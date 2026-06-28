@@ -713,7 +713,7 @@ export default function Home() {
                 </p>
                 <p>
                   <span className="text-white font-bold block mb-0.5">Core System Lead:</span>
-                  <span className="bg-sky-500/10 border border-sky-500/20 text-sky-300 font-black px-2 py-0.5 rounded text-[11px]">Shantanu</span>
+                  <span className="bg-sky-500/10 border border-sky-500/20 text-sky-300 font-black px-2 py-0.5 rounded text-[11px]">Shantanu Saxena</span>
                 </p>
                 <p>
                   <span className="text-white font-bold block mb-0.5">Key Mechanics Matrix:</span>
