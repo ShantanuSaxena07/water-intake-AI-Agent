@@ -31,7 +31,7 @@ export default function Home() {
   const [isEditingCustomButton, setIsEditingCustomButton] = useState(false);
   const [isSloshing, setIsSloshing] = useState(false);
   
-  // --- New FAB & Modal Control Trackers ---
+  // --- FAB & Modal Control Trackers ---
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<'about' | 'instructions' | null>(null);
 
@@ -370,7 +370,8 @@ export default function Home() {
 
       if (error) throw error;
 
-      const total = data.reduce((sum: number, entry: any) => sum + entry.amount_ml, 0);
+      // SQUASHED COMPILER ERROR BY INJECTING OPTIONAL FALLBACK ARRAY MESH PIPES
+      const total = (data || []).reduce((sum: number, entry: any) => sum + entry.amount_ml, 0);
       setWaterIntake(total);
     } catch (err) {
       const errorObj = err as any;
@@ -401,7 +402,7 @@ export default function Home() {
         groups[dKey] = 0;
       }
 
-      data.forEach((entry: any) => {
+      (data || []).forEach((entry: any) => {
         const dateKey = new Date(entry.created_at).toLocaleDateString('en-US', {
           weekday: 'short',
           month: 'short',
