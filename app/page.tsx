@@ -284,7 +284,12 @@ export default function Home() {
           }
         });
         if (error) throw error;
-        alert('Account initialization successful! Check your email inbox for a verification link!');
+        
+        // Auto-login or proceed smoothly since email confirmation is disabled in Supabase settings
+        if (data?.user) {
+          setUser(data.user);
+          setDisplayName(fullName.trim() || 'Hydrator');
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -587,7 +592,6 @@ export default function Home() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-lg font-black tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
-              {/* THE COOL GREETING ALIGNMENT PLACED PROPERLY BELOW MAIN BRANDING HEADER */}
               <p className="text-xs font-semibold text-sky-400/90 tracking-wide mt-0.5 select-none">
                 ✨ Welcome back, <span className="text-white capitalize font-bold">{displayName}</span>
               </p>
