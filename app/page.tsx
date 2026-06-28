@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 
 export default function Home() {
@@ -22,16 +22,51 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false); 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [chatHistory, setChatHistory] = useState<Array<{ sender: string; text: string }>>([
-    { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Your entries are safely secured to your private account!' }
+    { sender: 'agent', text: 'Hello! I am your AI Water Assistant. Tell me if you went to the gym or if it is boiling hot today!' }
   ]);
+
+  // --- Advanced Gamification & Personalization States ---
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [customButtonMl, setCustomButtonMl] = useState(600);
+  const [isEditingCustomButton, setIsEditingCustomButton] = useState(false);
+  const [isSloshing, setIsSloshing] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
 
   // --- View & Notification State Controls ---
   const [currentTab, setCurrentTab] = useState<'main' | 'history' | 'schedule'>('main');
-  const [weeklyHistory, setWeeklyHistory] = useState<any[]>([]);
+  const [weeklyHistory, setWeeklyHistory] = useState<Array<{ date: string; total: number }>>([]);
   const [showPushModal, setShowPushModal] = useState(false); 
 
   const percentage = Math.min((waterIntake / dailyGoal) * 100, 100);
   const isTargetAchieved = percentage >= 100;
+
+  // --- NATIVE PROCEDURAL AUDIO DROP ENGINE ---
+  const playSplashSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      // Fast pitch sweep simulation for a clean splash droplet sound effect
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.12);
+      
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {
+      console.warn('Audio context blocked by browser gesture permissions.');
+    }
+  };
 
   // --- EMAIL REGEX VALIDATOR ---
   const validateEmailFormat = (inputEmail: string) => {
@@ -119,6 +154,7 @@ export default function Home() {
       setWeeklyHistory([]);
       setShowPushModal(false);
       setDisplayName('');
+      setCurrentStreak(0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -129,7 +165,7 @@ export default function Home() {
       if (!user?.id) return;
       let { data, error } = await supabase
         .from('user_profiles')
-        .select('daily_goal_ml, push_subscription, notifications_enabled, timezone')
+        .select('daily_goal_ml, push_subscription, notifications_enabled, timezone, custom_button_ml')
         .eq('id', user.id)
         .single();
 
@@ -137,7 +173,7 @@ export default function Home() {
         const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const { data: newProfile, error: insertError } = await supabase
           .from('user_profiles')
-          .insert([{ id: user.id, daily_goal_ml: 2500, notifications_enabled: true, timezone: clientTz }])
+          .insert([{ id: user.id, daily_goal_ml: 2500, notifications_enabled: true, timezone: clientTz, custom_button_ml: 600 }])
           .select()
           .single();
         
@@ -145,12 +181,14 @@ export default function Home() {
         if (newProfile) {
           setDailyGoal(newProfile.daily_goal_ml);
           setNotificationsEnabled(true);
+          setCustomButtonMl(600);
           if (notificationsEnabled) setShowPushModal(true);
         }
       } else if (error) {
         throw error;
       } else if (data) {
         setDailyGoal(data.daily_goal_ml);
+        if (data.custom_button_ml) setCustomButtonMl(data.custom_button_ml);
         
         if (data.notifications_enabled !== undefined && data.notifications_enabled !== null) {
           setNotificationsEnabled(data.notifications_enabled);
@@ -191,6 +229,21 @@ export default function Home() {
       ]);
     } catch (err) {
       console.error("Failed to sync preference status:", err);
+    }
+  };
+
+  const updateCustomButtonValue = async (val: number) => {
+    try {
+      if (!user?.id) return;
+      const cleanVal = Math.max(50, Math.min(2000, val));
+      await supabase
+        .from('user_profiles')
+        .update({ custom_button_ml: cleanVal })
+        .eq('id', user.id);
+      setCustomButtonMl(cleanVal);
+      setIsEditingCustomButton(false);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -285,7 +338,6 @@ export default function Home() {
         });
         if (error) throw error;
         
-        // Auto-login or proceed smoothly since email confirmation is disabled in Supabase settings
         if (data?.user) {
           setUser(data.user);
           setDisplayName(fullName.trim() || 'Hydrator');
@@ -340,13 +392,23 @@ export default function Home() {
 
       const groups: { [key: string]: number } = {};
       
+      // Seed last 7 days explicitly for clean layout parsing even if empty
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dKey = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        groups[dKey] = 0;
+      }
+
       data.forEach((entry: any) => {
         const dateKey = new Date(entry.created_at).toLocaleDateString('en-US', {
-          weekday: 'long',
+          weekday: 'short',
           month: 'short',
           day: 'numeric'
         });
-        groups[dateKey] = (groups[dateKey] || 0) + entry.amount_ml;
+        if (groups[dateKey] !== undefined) {
+          groups[dateKey] += entry.amount_ml;
+        }
       });
 
       const formattedHistory = Object.keys(groups).map(dateStr => ({
@@ -355,9 +417,36 @@ export default function Home() {
       }));
 
       setWeeklyHistory(formattedHistory);
+
+      // --- CALCULATE DYNAMIC LOGGED STREAK COUNTER ---
+      let streak = 0;
+      let checkDate = new Date();
+      
+      while (true) {
+        const matchKey = checkDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        if (groups[matchKey] !== undefined && groups[matchKey] >= dailyGoal) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          // If today's goal isn't met yet, check yesterday to avoid breaking an active streak prematurely
+          if (streak === 0) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yKey = yesterday.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            if (groups[yKey] !== undefined && groups[yKey] >= dailyGoal) {
+              streak = 1;
+              checkDate = yesterday;
+              checkDate.setDate(checkDate.getDate() - 1);
+              continue;
+            }
+          }
+          break;
+        }
+      }
+      setCurrentStreak(streak);
+
     } catch (err) {
-      const errorObj = err as any;
-      console.error("History fetch failure:", errorObj?.message);
+      console.error("History analytics failure:", err);
     }
   };
 
@@ -368,6 +457,14 @@ export default function Home() {
         .insert([{ amount_ml: amount }]); 
 
       if (error) throw error;
+      
+      // AUDIO DROP MECHANIC
+      playSplashSound();
+      
+      // TRIGGER BOUNCE EFFECT
+      setIsSloshing(true);
+      setTimeout(() => setIsSloshing(false), 800);
+
       setWaterIntake((prev) => Math.max(0, prev + amount));
       fetchWeeklyHistory(); 
     } catch (err) {
@@ -415,6 +512,18 @@ export default function Home() {
 
       const data = await response.json();
 
+      // CONTEXTUAL AI MODIFIERS (GYM OR SCORCHING WEATHER DETECTORS)
+      const lowercaseMsg = currentMessage.toLowerCase();
+      if (lowercaseMsg.includes('gym') || lowercaseMsg.includes('workout') || lowercaseMsg.includes('exercise')) {
+        const advancedGoal = dailyGoal + 400;
+        setDailyGoal(advancedGoal);
+        data.ai_reply += " 🏋️‍♂️ I noticed your high-performance gym log! I have boosted your pacing timeline target by 400ml.";
+      } else if (lowercaseMsg.includes('hot') || lowercaseMsg.includes('boiling') || lowercaseMsg.includes('sun')) {
+        const advancedGoal = dailyGoal + 350;
+        setDailyGoal(advancedGoal);
+        data.ai_reply += " ☀️ Ambient climate surge detected! I expanded your tracking scale threshold by 350ml.";
+      }
+
       if (data.action === 'log' && data.amount_ml > 0) {
         await saveWaterEntry(data.amount_ml);
       } 
@@ -438,7 +547,6 @@ export default function Home() {
     return (
       <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
         <div className="w-full max-w-md bg-slate-800 rounded-[35px] p-8 shadow-2xl border border-slate-700/60 relative overflow-hidden backdrop-blur-md">
-          
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full filter blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-600/10 rounded-full filter blur-3xl pointer-events-none" />
 
@@ -518,7 +626,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
+    <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4 relative">
       <div className="w-full max-w-md h-[850px] bg-slate-800 rounded-[40px] shadow-2xl border-8 border-slate-700 flex flex-col overflow-hidden relative [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-slate-900/20 [&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-sky-600/50">
         
         <style jsx global>{`
@@ -529,6 +637,11 @@ export default function Home() {
           @keyframes celebration-glow {
             0%, 100% { filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.4)) drop-shadow(0 0 12px rgba(14, 165, 233, 0.2)); }
             50% { filter: drop-shadow(0 0 16px rgba(52, 211, 153, 0.8)) drop-shadow(0 0 24px rgba(14, 165, 233, 0.5)); }
+          }
+          @keyframes visual-slosh {
+            0%, 100% { transform: scale(1); }
+            30% { transform: scale(1.04) skewX(3deg); }
+            60% { transform: scale(0.97) skewX(-2deg); }
           }
           .scrollbar-elegant::-webkit-scrollbar {
             width: 5px;
@@ -559,6 +672,9 @@ export default function Home() {
           .animate-celebration {
             animation: celebration-glow 2s infinite ease-in-out;
           }
+          .animate-slosh {
+            animation: visual-slosh 0.8s ease-in-out;
+          }
         `}</style>
 
         {showPushModal && (
@@ -567,7 +683,7 @@ export default function Home() {
               <div className="w-12 h-12 bg-sky-500/10 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">🔔</div>
               <h3 className="text-base font-bold text-white tracking-wide">Enable Reminders?</h3>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Receive advanced smart alerts when timeline intervals trigger to keep your high-performance hydration targets completely on track.
+                Receive advanced smart alerts when timeline intervals trigger to keep your hydration targets on track.
               </p>
               <div className="mt-5 space-y-2">
                 <button 
@@ -588,13 +704,21 @@ export default function Home() {
         )}
 
         {/* TOP COMPACT HEADER SYSTEM WITH CUSTOM PERSONALIZED GREETING INTERFACE */}
-        <div className="p-4 border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6">
+        <div className="p-4 border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6 z-10">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-lg font-black tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
-              <p className="text-xs font-semibold text-sky-400/90 tracking-wide mt-0.5 select-none">
-                ✨ Welcome back, <span className="text-white capitalize font-bold">{displayName}</span>
-              </p>
+              <div className="flex items-center gap-2 mt-0.5 select-none">
+                <p className="text-xs font-semibold text-sky-400/90 tracking-wide">
+                  ✨ Welcome, <span className="text-white capitalize font-bold">{displayName}</span>
+                </p>
+                {/* STREAK GRAPHIC COUNTER LAYER */}
+                {currentStreak > 0 && (
+                  <span className="bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-black text-amber-400 flex items-center gap-0.5 animate-pulse">
+                    🔥 {currentStreak} Days
+                  </span>
+                )}
+              </div>
             </div>
             
             <div className="flex items-center gap-2.5">
@@ -633,24 +757,56 @@ export default function Home() {
           </div>
         </div>
 
+        {/* HIGH-PERFORMANCE VISUAL BAR GRAPH HISTORY PANEL */}
         {currentTab === 'history' && (
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-elegant">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-elegant">
             <div className="border-b border-slate-700 pb-2">
-              <h2 className="text-base font-bold text-white">7-Day Intake History</h2>
-              <p className="text-xs text-slate-400">Clean aggregated summary of daily water totals</p>
+              <h2 className="text-base font-bold text-white">Aggregated Hydration Analytics</h2>
+              <p className="text-xs text-slate-400">Real-time daily logging consistency chart bounds.</p>
             </div>
-            {weeklyHistory.length === 0 ? (
-              <div className="text-center text-slate-500 text-sm py-12 italic">No hydration records found.</div>
-            ) : (
-              <div className="space-y-3 pt-2">
-                {weeklyHistory.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center bg-slate-900/60 border border-slate-700/50 rounded-2xl p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-slate-200">{item.date}</span>
-                    <span className="text-sm font-bold text-sky-400">{(item.total / 1000).toFixed(1)} Litres</span>
-                  </div>
-                ))}
+
+            <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-4 flex flex-col justify-end h-64 pt-8">
+              <div className="flex items-end justify-between gap-2 h-full px-2">
+                {weeklyHistory.map((item, idx) => {
+                  const barHeightPct = Math.min((item.total / dailyGoal) * 100, 100);
+                  const isGoalMet = item.total >= dailyGoal;
+
+                  return (
+                    <div key={idx} className="flex flex-col items-center flex-1 group relative">
+                      {/* Floating tooltip overlay */}
+                      <div className="absolute -top-7 scale-0 group-hover:scale-100 bg-slate-950 text-[10px] font-bold text-sky-400 px-1.5 py-0.5 rounded shadow-xl border border-slate-700/50 transition-all z-20 pointer-events-none whitespace-nowrap">
+                        {item.total} ml
+                      </div>
+
+                      <div className="w-full bg-slate-800/80 rounded-t-md h-44 flex items-end overflow-hidden border border-slate-700/30">
+                        <div 
+                          className={`w-full rounded-t-sm transition-all duration-1000 ease-out ${
+                            isGoalMet 
+                              ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.3)]' 
+                              : barHeightPct > 0 ? 'bg-gradient-to-t from-sky-600 to-sky-400' : 'bg-transparent'
+                          }`}
+                          style={{ height: `${barHeightPct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-bold tracking-tight mt-2 block capitalize">
+                        {item.date.split(' ')[0]}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
+
+            <div className="space-y-2.5">
+              {weeklyHistory.slice().reverse().map((item, index) => (
+                <div key={index} className="flex justify-between items-center bg-slate-900/60 border border-slate-700/50 rounded-xl p-3.5 shadow-sm text-xs">
+                  <span className="font-semibold text-slate-300">{item.date}</span>
+                  <span className={`font-black ${item.total >= dailyGoal ? 'text-emerald-400' : 'text-sky-400'}`}>
+                    {(item.total / 1000).toFixed(2)} / {(dailyGoal / 1000).toFixed(1)} L
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -693,10 +849,10 @@ export default function Home() {
 
         {currentTab === 'main' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
-            <div className="flex flex-col items-center justify-center relative my-6">
+            <div className="flex flex-col items-center justify-center relative my-4">
               
               {/* BOTTLE STEM LAYOUT CONFIGURATION CONTAINER */}
-              <div className="relative flex flex-col items-center group pt-3">
+              <div className={`relative flex flex-col items-center group pt-3 transition-transform duration-300 ${isSloshing ? 'animate-slosh' : ''}`}>
                 
                 {/* DYNAMIC ROTATING HOVER CAP COMPONENT */}
                 <div 
@@ -791,18 +947,46 @@ export default function Home() {
               </div>
             </div>
 
+            {/* UPGRADED SMART QUICK Action CONTROL COMPONENT MATRIX */}
             <div>
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Quick Log</h3>
               <div className="grid grid-cols-3 gap-3">
-                <button onClick={() => handleQuickAdd(250)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
+                <button onClick={() => handleQuickAdd(250)} className="bg-slate-700/90 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
                   +250ml <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Glass</span>
                 </button>
-                <button onClick={() => handleQuickAdd(500)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
+                <button onClick={() => handleQuickAdd(500)} className="bg-slate-700/90 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
                   +500ml <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Bottle</span>
                 </button>
-                <button onClick={() => handleQuickAdd(750)} className="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
-                  +750ml <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Flask</span>
-                </button>
+                
+                {/* ADVANCED LONG-PRESS EDITABLE VOLUME MILESTONE CONTAINER BUTTON */}
+                {isEditingCustomButton ? (
+                  <div className="bg-slate-900 rounded-2xl p-1 border border-sky-400 flex items-center justify-center">
+                    <input 
+                      type="number"
+                      defaultValue={customButtonMl}
+                      autoFocus
+                      onBlur={(e) => updateCustomButtonValue(Number(e.target.value) || 600)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') updateCustomButtonValue(Number((e.target as HTMLInputElement).value) || 600);
+                      }}
+                      className="w-full bg-transparent text-center font-bold text-sm text-white focus:outline-none no-spinners"
+                    />
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => handleQuickAdd(customButtonMl)}
+                    onContextMenu={(e) => { e.preventDefault(); setIsEditingCustomButton(true); }}
+                    onTouchStart={(e) => {
+                      const timer = setTimeout(() => setIsEditingCustomButton(true), 800);
+                      (e.target as any).dataset.pressTimer = timer;
+                    }}
+                    onTouchEnd={(e) => clearTimeout(Number((e.target as any).dataset.pressTimer))}
+                    className="bg-sky-600/30 hover:bg-sky-600/40 text-sky-300 py-3 rounded-2xl font-bold text-sm transition-all shadow-md border border-sky-500/20"
+                    title="Tap to log, hold to customize value"
+                  >
+                    +{customButtonMl}ml <span className="block text-[9px] text-sky-400/70 font-normal mt-0.5">Custom ✎</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -830,6 +1014,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* COMPACT STICKY BOTTOM INPUT FIELDBAR */}
         <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md z-30">
           <input 
             type="text" 
@@ -843,6 +1028,41 @@ export default function Home() {
             {isLoading ? "..." : "Send"}
           </button>
         </form>
+
+        {/* --- PREMIUM GLOBAL RADIAL FLOATING ACTION BUTTON (FAB) --- */}
+        <div className="absolute bottom-20 right-4 z-40 flex flex-col items-center gap-2.5">
+          {isFabOpen && (
+            <div className="flex flex-col items-center gap-2 animate-fade-in">
+              <button 
+                onClick={() => { handleQuickAdd(250); setIsFabOpen(false); }}
+                className="w-11 h-11 bg-slate-900/90 border border-slate-700 hover:bg-slate-700 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+              >
+                250
+              </button>
+              <button 
+                onClick={() => { handleQuickAdd(500); setIsFabOpen(false); }}
+                className="w-11 h-11 bg-slate-900/90 border border-slate-700 hover:bg-slate-700 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+              >
+                500
+              </button>
+              <button 
+                onClick={() => { handleQuickAdd(customButtonMl); setIsFabOpen(false); }}
+                className="w-11 h-11 bg-sky-600 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+              >
+                {customButtonMl}
+              </button>
+            </div>
+          )}
+          <button 
+            type="button"
+            onClick={() => setIsFabOpen(!isFabOpen)}
+            className={`w-14 h-14 rounded-full text-white shadow-2xl flex items-center justify-center text-2xl font-bold transition-all duration-300 transform active:scale-90 ${
+              isFabOpen ? 'bg-rose-600 rotate-45' : 'bg-gradient-to-tr from-sky-600 to-blue-500 hover:from-sky-500 hover:to-blue-400 shadow-sky-500/20'
+            }`}
+          >
+            +
+          </button>
+        </div>
 
       </div>
     </div>
