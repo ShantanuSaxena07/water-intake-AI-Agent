@@ -206,7 +206,6 @@ export default function Home() {
             .eq('id', user.id);
         }
 
-        // RE-CALIBRATED VERIFICATION PIPELINE TO ENSURE BROWSER HANDSHAKE TRIGGER MAPS PROPERLY
         if (!data.push_subscription && typeof window !== 'undefined' && window.Notification && Notification.permission !== 'denied' && existingNotifState) {
           setShowPushModal(true);
         }
@@ -731,4 +730,390 @@ export default function Home() {
 
         {activeModal === 'instructions' && (
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 p-6 flex flex-col justify-center items-center">
-            <div className="bg
+            <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-6 w-full max-w-sm text-left shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-700 pb-2.5">
+                <h3 className="text-base font-black text-white tracking-wide">💡 Quick Commands</h3>
+                <button onClick={() => setActiveModal(null)} className="text-xs font-bold text-slate-400 bg-slate-900/60 hover:bg-slate-900 px-2.5 py-1 rounded-xl">Close</button>
+              </div>
+              <div className="text-xs text-slate-300 space-y-3.5 leading-relaxed font-medium">
+                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                  <span className="text-sky-400 font-bold block mb-0.5">🎛️ Rapid Logging</span>
+                  Tap the quick log buttons to instantly register static fluid measurements. Long-press the custom button to update its capacity limits.
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                  <span className="text-emerald-400 font-bold block mb-0.5">💬 Agent Chat Prompts</span>
+                  Tell the AI what you drank (e.g., <span className="text-white font-mono italic">"drank 400ml"</span>). To correct errors, type <span className="text-white font-mono italic">"remove 200ml"</span> or reset with <span className="text-white font-mono italic">"clear today"</span>.
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                  <span className="text-amber-400 font-bold block mb-0.5">🏋️‍♂️ High-Performance Scaling</span>
+                  Type <span className="text-white font-mono italic">"just finished gym session"</span> or <span className="text-white font-mono italic">"weather is hot"</span> to auto-expand your biological tracking boundaries immediately.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TOP COMPACT HEADER SYSTEM WITH CUSTOM PERSONALIZED GREETING INTERFACE */}
+        <div className="p-4 border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6 z-10">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-lg font-black tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">HydroAgent AI</h1>
+              <div className="flex items-center gap-2 mt-0.5 select-none">
+                <p className="text-xs font-semibold text-sky-400/90 tracking-wide">
+                  ✨ Welcome, <span className="text-white capitalize font-bold">{displayName}</span>
+                </p>
+                {currentStreak > 0 && (
+                  <span className="bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-black text-amber-400 flex items-center gap-0.5 animate-pulse">
+                    🔥 {currentStreak} Days
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2.5">
+              <button onClick={handleSignOut} className="text-[11px] font-semibold text-slate-400 bg-slate-700/60 hover:bg-slate-600 px-2.5 py-1.5 rounded-xl border border-slate-600 transition-all">
+                Exit
+              </button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-xl text-xs font-medium border border-slate-700/40">
+            <button onClick={() => setCurrentTab('main')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'main' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+              Tracker
+            </button>
+            <button onClick={() => setCurrentTab('schedule')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'schedule' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+              Timeline
+            </button>
+            <button onClick={() => setCurrentTab('history')} className={`py-1.5 rounded-lg transition-all ${currentTab === 'history' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+              History
+            </button>
+          </div>
+        </div>
+
+        {currentTab === 'history' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-elegant">
+            <div className="border-b border-slate-700 pb-2">
+              <h2 className="text-base font-bold text-white">Aggregated Hydration Analytics</h2>
+              <p className="text-xs text-slate-400">Real-time daily logging consistency chart bounds.</p>
+            </div>
+
+            <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-4 flex flex-col justify-end h-64 pt-8">
+              <div className="flex items-end justify-between gap-2 h-full px-2">
+                {weeklyHistory.map((item, idx) => {
+                  const barHeightPct = Math.min((item.total / dailyGoal) * 100, 100);
+                  const isGoalMet = item.total >= dailyGoal;
+
+                  return (
+                    <div key={idx} className="flex flex-col items-center flex-1 group relative">
+                      <div className="absolute -top-7 scale-0 group-hover:scale-100 bg-slate-950 text-[10px] font-bold text-sky-400 px-1.5 py-0.5 rounded shadow-xl border border-slate-700/50 transition-all z-20 pointer-events-none whitespace-nowrap">
+                        {item.total} ml
+                      </div>
+
+                      <div className="w-full bg-slate-800/80 rounded-t-md h-44 flex items-end overflow-hidden border border-slate-700/30">
+                        <div 
+                          className={`w-full rounded-t-sm transition-all duration-1000 ease-out ${
+                            isGoalMet 
+                              ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.3)]' 
+                              : barHeightPct > 0 ? 'bg-gradient-to-t from-sky-600 to-sky-400' : 'bg-transparent'
+                          }`}
+                          style={{ height: `${barHeightPct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-bold tracking-tight mt-2 block capitalize">
+                        {item.date.split(' ')[0]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {weeklyHistory.slice().reverse().map((item, index) => (
+                <div key={index} className="flex justify-between items-center bg-slate-900/60 border border-slate-700/50 rounded-xl p-3.5 shadow-sm text-xs">
+                  <span className="font-semibold text-slate-300">{item.date}</span>
+                  <span className={`font-black ${item.total >= dailyGoal ? 'text-emerald-400' : 'text-sky-400'}`}>
+                    {(item.total / 1000).toFixed(2)} / {(dailyGoal / 1000).toFixed(1)} L
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'schedule' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-36 scrollbar-elegant">
+            <div className="border-b border-slate-700 pb-2">
+              <h2 className="text-base font-bold text-white">Adaptive Hydration Pacing</h2>
+              <p className="text-xs text-slate-400">Dynamic targets recalibrated using clinical fluid distribution limits.</p>
+            </div>
+
+            <div className="relative border-l-2 border-slate-700 ml-4 pl-6 space-y-6 pt-4">
+              {scheduleSlots.map((slot, index) => {
+                const requiredAmount = Math.round(dailyGoal * slot.pct);
+                const isMet = waterIntake >= requiredAmount;
+
+                return (
+                  <div key={index} className="relative group">
+                    <div className={`absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-all ${
+                      isMet ? 'bg-sky-500 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]' : 'bg-slate-800 border-slate-600'
+                    }`} />
+                    
+                    <div className="bg-slate-900/40 border border-slate-700/40 rounded-xl p-3 shadow-sm flex justify-between items-center">
+                      <div>
+                        <span className="text-xs font-bold text-sky-400 block tracking-wide">{slot.time}</span>
+                        <span className="text-sm font-medium text-slate-200 block mt-0.5">{slot.label}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-slate-400 block font-medium">Interval Target</span>
+                        <span className={`text-xs font-bold ${isMet ? 'text-emerald-400' : 'text-slate-300'}`}>
+                          {isMet ? '✓ Met' : `${requiredAmount} ml`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {currentTab === 'main' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
+            <div className="flex flex-col items-center justify-center relative my-4">
+              
+              <div className={`relative flex flex-col items-center group pt-3 transition-transform duration-300 ${isSloshing ? 'animate-slosh' : ''}`}>
+                <div 
+                  className={`w-14 h-5 rounded-t-md transition-all duration-1000 cubic-bezier(0.4, 0, 0.2, 1) z-20 border-b border-slate-950/40 transform origin-center ${
+                    isTargetAchieved 
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_-4px_12px_rgba(16,185,129,0.6)] translate-y-0 rotate-180 animate-celebration' 
+                      : 'bg-gradient-to-r from-slate-600 to-slate-500 -translate-y-3 rotate-0'
+                  }`} 
+                />
+                <div className={`w-18 h-2 transition-all duration-1000 cubic-bezier(0.4, 0, 0.2, 1) z-20 transform ${
+                  isTargetAchieved ? 'bg-emerald-600/90 translate-y-0' : 'bg-slate-700 -translate-y-3'
+                }`} />
+
+                <div 
+                  className={`relative w-56 h-56 mt-[-2px] bg-transparent transition-all duration-700 flex items-center justify-center overflow-hidden border-4 shadow-[0_10px_30px_rgba(0,0,0,0.3)] ${
+                    isTargetAchieved 
+                      ? 'border-emerald-400/80 shadow-[0_0_25px_rgba(52,211,153,0.3)] animate-celebration' 
+                      : 'border-slate-700/90'
+                  }`}
+                  style={{
+                    borderRadius: '42% 42% 46% 46% / 35% 35% 48% 48%'
+                  }}
+                >
+                  <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                    <svg 
+                      viewBox="0 0 100 100" 
+                      className="w-full h-full absolute transition-all duration-1000 ease-out"
+                      style={{ transform: `translateY(${100 - percentage}%)` }}
+                      preserveAspectRatio="none"
+                    >
+                      <path d="M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z" fill="url(#water-gradient)">
+                        <animate 
+                          attributeName="d" 
+                          dur="4s" 
+                          repeatCount="indefinite"
+                          values="
+                            M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z;
+                            M 0 10 Q 25 6 50 12 T 100 10 L 100 110 L 0 110 Z;
+                            M 0 10 Q 25 14 50 10 T 100 10 L 100 110 L 0 110 Z
+                          "
+                        />
+                      </path>
+                      <defs>
+                        <linearGradient id="water-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor={isTargetAchieved ? "#34d399" : "#38bdf8"} stopOpacity="0.9" />
+                          <stop offset="100%" stopColor={isTargetAchieved ? "#047857" : "#2563eb"} stopOpacity="0.75" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+
+                  <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
+                    <span className={`text-5xl font-black block tracking-tight font-mono transition-colors duration-500 ${isTargetAchieved ? 'text-emerald-300' : 'text-white'}`}>
+                      {waterIntake}
+                    </span>
+                    
+                    {isEditingGoal ? (
+                      <div className="mt-1 bg-slate-900/90 rounded-full px-3 py-1 border border-sky-400/50 shadow-[0_0_15px_rgba(14,165,233,0.3)] flex items-center justify-center">
+                        <input
+                          type="number"
+                          defaultValue={dailyGoal}
+                          onBlur={(e: React.FocusEvent<HTMLInputElement>) => updateDailyGoalInCloud(Number(e.target.value) || 2500)}
+                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === 'Enter') updateDailyGoalInCloud(Number((e.target as HTMLInputElement).value) || 2500);
+                          }}
+                          autoFocus
+                          className="w-20 bg-transparent text-center text-xs text-white font-black outline-none focus:ring-0 p-0 border-none no-spinners animate-text-blink"
+                        />
+                      </div>
+                    ) : (
+                      <span 
+                        onClick={() => setIsEditingGoal(true)}
+                        className={`text-[11px] uppercase tracking-widest font-bold cursor-pointer bg-slate-900/40 hover:bg-slate-900/80 px-3 py-1 rounded-full border border-white/10 transition-all duration-200 block mt-1.5 ${
+                          isTargetAchieved ? 'text-emerald-200 border-emerald-500/30 hover:border-emerald-400' : 'text-sky-200/90 hover:border-sky-400/50'
+                        }`}
+                      >
+                        Target: {dailyGoal} ml ✎
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`mt-5 border px-4 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all duration-500 ${
+                isTargetAchieved ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400' : 'bg-slate-900/60 border-slate-700/50 text-sky-400'
+              }`}>
+                {isTargetAchieved ? '🎉 TARGET ACCOMPLISHED!' : `${Math.round(percentage)}% Accounted`}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Quick Log</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <button onClick={() => handleQuickAdd(250)} className="bg-slate-700/90 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
+                  +250ml <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Glass</span>
+                </button>
+                <button onClick={() => handleQuickAdd(500)} className="bg-slate-700/90 hover:bg-slate-600 active:scale-95 text-white py-3 rounded-2xl font-semibold text-sm transition-all shadow-md border border-slate-600/30">
+                  +500ml <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Bottle</span>
+                </button>
+                
+                {isEditingCustomButton ? (
+                  <div className="bg-slate-900 rounded-2xl p-1 border border-sky-400 flex items-center justify-center">
+                    <input 
+                      type="number"
+                      defaultValue={customButtonMl}
+                      autoFocus
+                      onBlur={(e) => updateCustomButtonValue(Number(e.target.value) || 600)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') updateCustomButtonValue(Number((e.target as HTMLInputElement).value) || 600);
+                      }}
+                      className="w-full bg-transparent text-center font-bold text-sm text-white focus:outline-none no-spinners"
+                    />
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => handleQuickAdd(customButtonMl)}
+                    onContextMenu={(e) => { e.preventDefault(); setIsEditingCustomButton(true); }}
+                    onTouchStart={(e) => {
+                      const timer = setTimeout(() => setIsEditingCustomButton(true), 800);
+                      (e.target as any).dataset.pressTimer = timer;
+                    }}
+                    onTouchEnd={(e) => clearTimeout(Number((e.target as any).dataset.pressTimer))}
+                    className="bg-sky-600/30 hover:bg-sky-600/40 text-sky-300 py-3 rounded-2xl font-bold text-sm transition-all shadow-md border border-sky-500/20"
+                  >
+                    +{customButtonMl}ml <span className="block text-[9px] text-sky-400/70 font-normal mt-0.5">Custom ✎</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Agent Chat</h3>
+              <div className="bg-slate-900/60 rounded-2xl p-4 h-48 overflow-y-auto space-y-3 text-sm border border-slate-700/50 scrollbar-elegant">
+                {chatHistory.map((msg: any, idx: number) => (
+                  <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm leading-relaxed ${
+                      msg.sender === 'user' ? 'bg-sky-600 text-white rounded-tr-none border border-sky-500/30' : 'bg-slate-700 text-slate-200 rounded-tl-none border border-slate-600/30'
+                    }`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-slate-700/50 text-slate-400 rounded-2xl rounded-tl-none px-4 py-2 text-xs italic animate-pulse">
+                      Agent is processing...
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md z-30">
+          <input 
+            type="text" 
+            value={chatMessage}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChatMessage(e.target.value)}
+            disabled={isLoading}
+            placeholder={isLoading ? "Thinking..." : "Tell the AI what you drank..."} 
+            className="flex-1 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder-slate-500 border border-slate-700 disabled:opacity-50"
+          />
+          <button type="submit" disabled={isLoading} className="bg-sky-600 hover:bg-sky-500 active:scale-95 text-white px-5 py-3 rounded-xl font-medium text-sm transition-all shadow-md disabled:opacity-50">
+            {isLoading ? "..." : "Send"}
+          </button>
+        </form>
+
+        {/* --- DYNAMIC KINETIC FLOATING ACTION BUTTON SYSTEM (FAB) --- */}
+        <div className="absolute bottom-20 right-4 z-40 flex flex-col items-end gap-3 select-none">
+          {isFabOpen && (
+            <div className="flex flex-col items-end gap-2.5 pr-1 animate-fade-in">
+              
+              {/* ABOUT INTERFACE BUBBLE TRIGGER */}
+              <div className="flex items-center gap-2 group">
+                <span className="bg-slate-950/90 text-[10px] font-black tracking-wider uppercase text-sky-400 px-2 py-1 rounded-lg border border-slate-700/50 shadow-xl opacity-90">
+                  About
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => { setActiveModal('about'); setIsFabOpen(false); }}
+                  className="w-11 h-11 bg-slate-900/95 border border-slate-700/80 hover:bg-slate-700 text-white font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+                >
+                  ℹ️
+                </button>
+              </div>
+
+              {/* INSTRUCTION MENU BUBBLE TRIGGER */}
+              <div className="flex items-center gap-2 group">
+                <span className="bg-slate-950/90 text-[10px] font-black tracking-wider uppercase text-emerald-400 px-2 py-1 rounded-lg border border-slate-700/50 shadow-xl opacity-90">
+                  Guide
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => { setActiveModal('instructions'); setIsFabOpen(false); }}
+                  className="w-11 h-11 bg-slate-900/95 border border-slate-700/80 hover:bg-slate-700 text-white font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+                >
+                  💡
+                </button>
+              </div>
+
+              {/* RADIAL INTEGRATED ALERTS SYSTEM TOGGLE SWITCH */}
+              <div className="flex items-center gap-2 group">
+                <span className={`bg-slate-950/90 text-[10px] font-black tracking-wider uppercase px-2 py-1 rounded-lg border border-slate-700/50 shadow-xl opacity-90 ${notificationsEnabled ? 'text-sky-400' : 'text-slate-500'}`}>
+                  {notificationsEnabled ? 'Alerts: On' : 'Alerts: Off'}
+                </span>
+                <button 
+                  type="button"
+                  onClick={handleToggleNotifications}
+                  className={`w-11 h-11 border font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
+                    notificationsEnabled ? 'bg-sky-500/20 border-sky-400 text-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.3)]' : 'bg-slate-900/95 border-slate-700 text-slate-500'
+                  }`}
+                >
+                  {notificationsEnabled ? '🔔' : '🔕'}
+                </button>
+              </div>
+
+            </div>
+          )}
+
+          {/* MASTER KINETIC ROTATIONAL TRIGGER CONTROL */}
+          <button 
+            type="button"
+            onClick={() => setIsFabOpen(!isFabOpen)}
+            className={`w-14 h-14 rounded-full text-white shadow-2xl flex items-center justify-center text-2xl font-black transition-all duration-300 transform active:scale-90 select-none ${
+              isFabOpen ? 'bg-rose-600 rotate-45 shadow-rose-900/20' : 'bg-gradient-to-tr from-sky-600 to-blue-500 hover:from-sky-500 hover:to-blue-400 shadow-sky-500/20'
+            }`}
+          >
+            +
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
