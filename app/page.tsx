@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 
 export default function Home() {
@@ -30,7 +30,10 @@ export default function Home() {
   const [customButtonMl, setCustomButtonMl] = useState(600);
   const [isEditingCustomButton, setIsEditingCustomButton] = useState(false);
   const [isSloshing, setIsSloshing] = useState(false);
+  
+  // --- New FAB & Modal Control Trackers ---
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<'about' | 'instructions' | null>(null);
 
   // --- View & Notification State Controls ---
   const [currentTab, setCurrentTab] = useState<'main' | 'history' | 'schedule'>('main');
@@ -51,7 +54,6 @@ export default function Home() {
       const gain = ctx.createGain();
       
       osc.type = 'sine';
-      // Fast pitch sweep simulation for a clean splash droplet sound effect
       osc.frequency.setValueAtTime(150, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.12);
       
@@ -361,7 +363,7 @@ export default function Home() {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
+      const { data, error = null } = await supabase
         .from('water_entries')
         .select('amount_ml')
         .gte('created_at', todayStart.toISOString()); 
@@ -392,7 +394,6 @@ export default function Home() {
 
       const groups: { [key: string]: number } = {};
       
-      // Seed last 7 days explicitly for clean layout parsing even if empty
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
@@ -418,7 +419,6 @@ export default function Home() {
 
       setWeeklyHistory(formattedHistory);
 
-      // --- CALCULATE DYNAMIC LOGGED STREAK COUNTER ---
       let streak = 0;
       let checkDate = new Date();
       
@@ -428,7 +428,6 @@ export default function Home() {
           streak++;
           checkDate.setDate(checkDate.getDate() - 1);
         } else {
-          // If today's goal isn't met yet, check yesterday to avoid breaking an active streak prematurely
           if (streak === 0) {
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
@@ -458,10 +457,7 @@ export default function Home() {
 
       if (error) throw error;
       
-      // AUDIO DROP MECHANIC
       playSplashSound();
-      
-      // TRIGGER BOUNCE EFFECT
       setIsSloshing(true);
       setTimeout(() => setIsSloshing(false), 800);
 
@@ -512,7 +508,6 @@ export default function Home() {
 
       const data = await response.json();
 
-      // CONTEXTUAL AI MODIFIERS (GYM OR SCORCHING WEATHER DETECTORS)
       const lowercaseMsg = currentMessage.toLowerCase();
       if (lowercaseMsg.includes('gym') || lowercaseMsg.includes('workout') || lowercaseMsg.includes('exercise')) {
         const advancedGoal = dailyGoal + 400;
@@ -703,6 +698,59 @@ export default function Home() {
           </div>
         )}
 
+        {/* --- DYNAMIC GLASSMORPHISM MODAL OVERLAYS --- */}
+        {activeModal === 'about' && (
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 p-6 flex flex-col justify-center items-center">
+            <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-6 w-full max-w-sm text-left shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-700 pb-2.5">
+                <h3 className="text-base font-black text-white tracking-wide">ℹ️ System Architecture</h3>
+                <button onClick={() => setActiveModal(null)} className="text-xs font-bold text-slate-400 bg-slate-900/60 hover:bg-slate-900 px-2.5 py-1 rounded-xl">Close</button>
+              </div>
+              <div className="text-xs text-slate-300 space-y-3 leading-relaxed">
+                <p>
+                  <span className="text-sky-400 font-bold">HydroAgent AI</span> is a progressive, full-stack deployment engineered to optimize biological fluid distribution layers using real-time predictive computation bounds.
+                </p>
+                <p>
+                  <span className="text-white font-bold block mb-0.5">Core System Lead:</span>
+                  <span className="bg-sky-500/10 border border-sky-500/20 text-sky-300 font-black px-2 py-0.5 rounded text-[11px]">Shantanu</span>
+                </p>
+                <p>
+                  <span className="text-white font-bold block mb-0.5">Key Mechanics Matrix:</span>
+                  • Medical Pacing Timeline Core<br/>
+                  • Supabase Isolation Protocol<br/>
+                  • Secure Heterogeneous Cron Handshake<br/>
+                  • Interactive Neural Linguistic Parsing
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeModal === 'instructions' && (
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 p-6 flex flex-col justify-center items-center">
+            <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-6 w-full max-w-sm text-left shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-700 pb-2.5">
+                <h3 className="text-base font-black text-white tracking-wide">💡 Quick Commands</h3>
+                <button onClick={() => setActiveModal(null)} className="text-xs font-bold text-slate-400 bg-slate-900/60 hover:bg-slate-900 px-2.5 py-1 rounded-xl">Close</button>
+              </div>
+              <div className="text-xs text-slate-300 space-y-3.5 leading-relaxed font-medium">
+                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                  <span className="text-sky-400 font-bold block mb-0.5">🎛️ Rapid Logging</span>
+                  Tap the quick log buttons to instantly register static fluid measurements. Long-press the custom button to update its capacity limits.
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                  <span className="text-emerald-400 font-bold block mb-0.5">💬 Agent Chat Prompts</span>
+                  Tell the AI what you drank (e.g., <span className="text-white font-mono italic">"drank 400ml"</span>). To correct errors, type <span className="text-white font-mono italic">"remove 200ml"</span> or reset with <span className="text-white font-mono italic">"clear today"</span>.
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                  <span className="text-amber-400 font-bold block mb-0.5">🏋️‍♂️ High-Performance Scaling</span>
+                  Type <span className="text-white font-mono italic">"just finished gym session"</span> or <span className="text-white font-mono italic">"weather is hot"</span> to auto-expand your biological tracking boundaries immediately.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TOP COMPACT HEADER SYSTEM WITH CUSTOM PERSONALIZED GREETING INTERFACE */}
         <div className="p-4 border-b border-slate-700 bg-slate-850 flex flex-col gap-3 px-6 z-10">
           <div className="flex justify-between items-center">
@@ -712,7 +760,6 @@ export default function Home() {
                 <p className="text-xs font-semibold text-sky-400/90 tracking-wide">
                   ✨ Welcome, <span className="text-white capitalize font-bold">{displayName}</span>
                 </p>
-                {/* STREAK GRAPHIC COUNTER LAYER */}
                 {currentStreak > 0 && (
                   <span className="bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-black text-amber-400 flex items-center gap-0.5 animate-pulse">
                     🔥 {currentStreak} Days
@@ -722,22 +769,6 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-2.5">
-              <span className={`text-[9px] font-bold tracking-widest uppercase transition-colors duration-300 ${notificationsEnabled ? 'text-sky-400' : 'text-slate-500'}`}>
-                Alerts
-              </span>
-              <button 
-                onClick={handleToggleNotifications}
-                className={`w-9 h-5 rounded-full p-0.5 transition-all duration-300 relative outline-none border border-slate-600/50 ${
-                  notificationsEnabled ? 'bg-sky-500/20 border-sky-400/40 shadow-[0_0_10px_rgba(14,165,233,0.2)]' : 'bg-slate-900'
-                }`}
-              >
-                <div className={`w-3.5 h-3.5 rounded-full shadow-md transform transition-transform duration-300 flex items-center justify-center text-[8px] font-bold ${
-                  notificationsEnabled ? 'translate-x-4 bg-sky-400 text-slate-950' : 'translate-x-0 bg-slate-500 text-white'
-                }`}>
-                  {notificationsEnabled ? '✓' : '✕'}
-                </div>
-              </button>
-
               <button onClick={handleSignOut} className="text-[11px] font-semibold text-slate-400 bg-slate-700/60 hover:bg-slate-600 px-2.5 py-1.5 rounded-xl border border-slate-600 transition-all">
                 Exit
               </button>
@@ -757,7 +788,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* HIGH-PERFORMANCE VISUAL BAR GRAPH HISTORY PANEL */}
         {currentTab === 'history' && (
           <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-elegant">
             <div className="border-b border-slate-700 pb-2">
@@ -773,7 +803,6 @@ export default function Home() {
 
                   return (
                     <div key={idx} className="flex flex-col items-center flex-1 group relative">
-                      {/* Floating tooltip overlay */}
                       <div className="absolute -top-7 scale-0 group-hover:scale-100 bg-slate-950 text-[10px] font-bold text-sky-400 px-1.5 py-0.5 rounded shadow-xl border border-slate-700/50 transition-all z-20 pointer-events-none whitespace-nowrap">
                         {item.total} ml
                       </div>
@@ -851,10 +880,7 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 scrollbar-elegant">
             <div className="flex flex-col items-center justify-center relative my-4">
               
-              {/* BOTTLE STEM LAYOUT CONFIGURATION CONTAINER */}
               <div className={`relative flex flex-col items-center group pt-3 transition-transform duration-300 ${isSloshing ? 'animate-slosh' : ''}`}>
-                
-                {/* DYNAMIC ROTATING HOVER CAP COMPONENT */}
                 <div 
                   className={`w-14 h-5 rounded-t-md transition-all duration-1000 cubic-bezier(0.4, 0, 0.2, 1) z-20 border-b border-slate-950/40 transform origin-center ${
                     isTargetAchieved 
@@ -866,7 +892,6 @@ export default function Home() {
                   isTargetAchieved ? 'bg-emerald-600/90 translate-y-0' : 'bg-slate-700 -translate-y-3'
                 }`} />
 
-                {/* BROAD WATER BOTTLE CONTAINER SHAPE */}
                 <div 
                   className={`relative w-56 h-56 mt-[-2px] bg-transparent transition-all duration-700 flex items-center justify-center overflow-hidden border-4 shadow-[0_10px_30px_rgba(0,0,0,0.3)] ${
                     isTargetAchieved 
@@ -877,8 +902,6 @@ export default function Home() {
                     borderRadius: '42% 42% 46% 46% / 35% 35% 48% 48%'
                   }}
                 >
-                  
-                  {/* VECTOR LIQUID FLOW TRACK ENGINE */}
                   <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
                     <svg 
                       viewBox="0 0 100 100" 
@@ -907,7 +930,6 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* TYPOGRAPHY DATA LAYER */}
                   <div className="text-center z-10 px-4 select-none drop-shadow-[0_2px_10px_rgba(15,23,42,0.95)]">
                     <span className={`text-5xl font-black block tracking-tight font-mono transition-colors duration-500 ${isTargetAchieved ? 'text-emerald-300' : 'text-white'}`}>
                       {waterIntake}
@@ -947,7 +969,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* UPGRADED SMART QUICK Action CONTROL COMPONENT MATRIX */}
             <div>
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Quick Log</h3>
               <div className="grid grid-cols-3 gap-3">
@@ -958,7 +979,6 @@ export default function Home() {
                   +500ml <span className="block text-[10px] text-slate-400 font-normal mt-0.5">Bottle</span>
                 </button>
                 
-                {/* ADVANCED LONG-PRESS EDITABLE VOLUME MILESTONE CONTAINER BUTTON */}
                 {isEditingCustomButton ? (
                   <div className="bg-slate-900 rounded-2xl p-1 border border-sky-400 flex items-center justify-center">
                     <input 
@@ -982,7 +1002,6 @@ export default function Home() {
                     }}
                     onTouchEnd={(e) => clearTimeout(Number((e.target as any).dataset.pressTimer))}
                     className="bg-sky-600/30 hover:bg-sky-600/40 text-sky-300 py-3 rounded-2xl font-bold text-sm transition-all shadow-md border border-sky-500/20"
-                    title="Tap to log, hold to customize value"
                   >
                     +{customButtonMl}ml <span className="block text-[9px] text-sky-400/70 font-normal mt-0.5">Custom ✎</span>
                   </button>
@@ -1014,7 +1033,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* COMPACT STICKY BOTTOM INPUT FIELDBAR */}
         <form onSubmit={handleSendMessage} className="absolute bottom-0 left-0 right-0 p-4 bg-slate-800 border-t border-slate-700 flex gap-2 items-center backdrop-blur-md z-30">
           <input 
             type="text" 
@@ -1029,35 +1047,64 @@ export default function Home() {
           </button>
         </form>
 
-        {/* --- PREMIUM GLOBAL RADIAL FLOATING ACTION BUTTON (FAB) --- */}
-        <div className="absolute bottom-20 right-4 z-40 flex flex-col items-center gap-2.5">
+        {/* --- DYNAMIC KINETIC FLOATING ACTION BUTTON SYSTEM (FAB) --- */}
+        <div className="absolute bottom-20 right-4 z-40 flex flex-col items-end gap-3 select-none">
           {isFabOpen && (
-            <div className="flex flex-col items-center gap-2 animate-fade-in">
-              <button 
-                onClick={() => { handleQuickAdd(250); setIsFabOpen(false); }}
-                className="w-11 h-11 bg-slate-900/90 border border-slate-700 hover:bg-slate-700 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
-              >
-                250
-              </button>
-              <button 
-                onClick={() => { handleQuickAdd(500); setIsFabOpen(false); }}
-                className="w-11 h-11 bg-slate-900/90 border border-slate-700 hover:bg-slate-700 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
-              >
-                500
-              </button>
-              <button 
-                onClick={() => { handleQuickAdd(customButtonMl); setIsFabOpen(false); }}
-                className="w-11 h-11 bg-sky-600 text-white text-xs font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
-              >
-                {customButtonMl}
-              </button>
+            <div className="flex flex-col items-end gap-2.5 pr-1 animate-fade-in">
+              
+              {/* ABOUT INTERFACE BUBBLE TRIGGER */}
+              <div className="flex items-center gap-2 group">
+                <span className="bg-slate-950/90 text-[10px] font-black tracking-wider uppercase text-sky-400 px-2 py-1 rounded-lg border border-slate-700/50 shadow-xl opacity-90">
+                  About
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => { setActiveModal('about'); setIsFabOpen(false); }}
+                  className="w-11 h-11 bg-slate-900/95 border border-slate-700/80 hover:bg-slate-700 text-white font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+                >
+                  ℹ️
+                </button>
+              </div>
+
+              {/* INSTRUCTION MENU BUBBLE TRIGGER */}
+              <div className="flex items-center gap-2 group">
+                <span className="bg-slate-950/90 text-[10px] font-black tracking-wider uppercase text-emerald-400 px-2 py-1 rounded-lg border border-slate-700/50 shadow-xl opacity-90">
+                  Guide
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => { setActiveModal('instructions'); setIsFabOpen(false); }}
+                  className="w-11 h-11 bg-slate-900/95 border border-slate-700/80 hover:bg-slate-700 text-white font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95"
+                >
+                  💡
+                </button>
+              </div>
+
+              {/* RADIAL INTEGRATED ALERTS SYSTEM TOGGLE SWITCH */}
+              <div className="flex items-center gap-2 group">
+                <span className={`bg-slate-950/90 text-[10px] font-black tracking-wider uppercase px-2 py-1 rounded-lg border border-slate-700/50 shadow-xl opacity-90 ${notificationsEnabled ? 'text-sky-400' : 'text-slate-500'}`}>
+                  {notificationsEnabled ? 'Alerts: On' : 'Alerts: Off'}
+                </span>
+                <button 
+                  type="button"
+                  onClick={handleToggleNotifications}
+                  className={`w-11 h-11 border font-bold rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
+                    notificationsEnabled ? 'bg-sky-500/20 border-sky-400 text-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.3)]' : 'bg-slate-900/95 border-slate-700 text-slate-500'
+                  }`}
+                >
+                  {notificationsEnabled ? '🔔' : '🔕'}
+                </button>
+              </div>
+
             </div>
           )}
+
+          {/* MASTER KINETIC ROTATIONAL TRIGGER CONTROL */}
           <button 
             type="button"
             onClick={() => setIsFabOpen(!isFabOpen)}
-            className={`w-14 h-14 rounded-full text-white shadow-2xl flex items-center justify-center text-2xl font-bold transition-all duration-300 transform active:scale-90 ${
-              isFabOpen ? 'bg-rose-600 rotate-45' : 'bg-gradient-to-tr from-sky-600 to-blue-500 hover:from-sky-500 hover:to-blue-400 shadow-sky-500/20'
+            className={`w-14 h-14 rounded-full text-white shadow-2xl flex items-center justify-center text-2xl font-black transition-all duration-300 transform active:scale-90 select-none ${
+              isFabOpen ? 'bg-rose-600 rotate-45 shadow-rose-900/20' : 'bg-gradient-to-tr from-sky-600 to-blue-500 hover:from-sky-500 hover:to-blue-400 shadow-sky-500/20'
             }`}
           >
             +
