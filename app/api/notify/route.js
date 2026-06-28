@@ -2,15 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
+// 1. Move VAPID configuration here (Safe for compilation)
 webpush.setVapidDetails(
   'mailto:your-email@example.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
+  process.env.VAPID_PRIVATE_KEY || ''
 );
 
 export async function GET(request) {
@@ -19,6 +15,12 @@ export async function GET(request) {
   if (authHeader !== process.env.CRON_SECRET_KEY) {
     return NextResponse.json({ error: 'Access Denied: Invalid Security Token' }, { status: 401 });
   }
+
+  // 2. INITIALIZE SUPABASE CLIENT INSIDE THE RUNNING FUNCTION (Prevents Build Crashes)
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
 
   try {
     // 1. Fetch only users who have notifications turned ON and have a push token
@@ -36,13 +38,11 @@ export async function GET(request) {
     let deliveredCount = 0;
 
     for (const profile of profiles) {
-      // 2. Get local time for the user's specific timezone
       const userLocalTime = new Date(new Date().toLocaleString('en-US', { timeZone: profile.timezone }));
       const currentHour = userLocalTime.getHours();
       const currentMinutes = userLocalTime.getMinutes();
       const currentDecimalTime = currentHour + currentMinutes / 60;
 
-      // 3. Rebuild the Dynamic Healthcare Timeline
       let slotsCount = 4;
       if (profile.daily_goal_ml > 1800 && profile.daily_goal_ml <= 3000) slotsCount = 6;
       if (profile.daily_goal_ml > 3000) slotsCount = 8;
@@ -57,7 +57,6 @@ export async function GET(request) {
       for (let i = 0; i < slotsCount; i++) {
         const slotHourDecimal = morningStart + (i * intervalDelta);
         
-        // If current time falls within the 30-minute processing frame of a slot
         if (Math.abs(currentDecimalTime - slotHourDecimal) <= 0.26) {
           matchingSlot = {
             targetPct: (i + 1) / slotsCount,
@@ -70,7 +69,6 @@ export async function GET(request) {
 
       if (!matchingSlot) continue;
 
-      // 4. Gather today's water data for this user
       const todayStart = new Date(userLocalTime);
       todayStart.setHours(0, 0, 0, 0);
 
@@ -85,7 +83,6 @@ export async function GET(request) {
       const totalIntake = entries?.reduce((sum, entry) => sum + entry.amount_ml, 0) || 0;
       const requiredIntakeForSlot = Math.round(profile.daily_goal_ml * matchingSlot.targetPct);
 
-      // 5. Fire alert if behind milestone goals
       if (totalIntake < requiredIntakeForSlot) {
         const payload = JSON.stringify({
           title: '🌊 Timeline Checkpoint!',
