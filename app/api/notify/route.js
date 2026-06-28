@@ -2,13 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-// 1. Move VAPID configuration here (Safe for compilation)
-webpush.setVapidDetails(
-  'mailto:your-email@example.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
-);
-
 export async function GET(request) {
   // --- SECURITY PASS CHECK ---
   const authHeader = request.headers.get('X-Cron-Security-Key');
@@ -16,14 +9,25 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Access Denied: Invalid Security Token' }, { status: 401 });
   }
 
-  // 2. INITIALIZE SUPABASE CLIENT INSIDE THE RUNNING FUNCTION (Prevents Build Crashes)
+  // 1. INITIALIZE VAPID DETAILS INSIDE THE REQUEST HANDLER (Prevents Compilation Crashes)
+  try {
+    webpush.setVapidDetails(
+      'mailto:your-email@example.com',
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
+      process.env.VAPID_PRIVATE_KEY || ''
+    );
+  } catch (vapidError) {
+    console.error('VAPID initialization skipped or failed during live cycle:', vapidError.message);
+  }
+
+  // 2. INITIALIZE SUPABASE CLIENT INSIDE THE RUNNING FUNCTION
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.SUPABASE_SERVICE_ROLE_KEY || ''
   );
 
   try {
-    // 1. Fetch only users who have notifications turned ON and have a push token
+    // Fetch only users who have notifications turned ON and have a push token
     const { data: profiles, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, push_subscription, daily_goal_ml, timezone')
