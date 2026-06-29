@@ -13,6 +13,9 @@ export default function Home() {
   const [authMode, setAuthMode] = useState('login'); 
   const [authError, setAuthError] = useState('');
   const [emailValidationError, setEmailValidationError] = useState('');
+  
+  // --- New Email Verification UI Flow Gate ---
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
 
   // --- App Tracker State Variables ---
   const [waterIntake, setWaterIntake] = useState(0); 
@@ -126,19 +129,30 @@ export default function Home() {
     setScheduleSlots(generatedSlots);
   }, [dailyGoal]);
 
-  // --- 1. AUTH MONITOR ---
+  // --- 1. AUTH MONITOR (UPDATED TO CHECK FOR EMAIL CONFIRMATION TIMESTAMPS) ---
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setDisplayName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Hydrator');
+      const targetUser = session?.user ?? null;
+      if (targetUser && targetUser.email_confirmed_at) {
+        setUser(targetUser);
+        setDisplayName(targetUser.user_metadata?.full_name || targetUser.email?.split('@')[0] || 'Hydrator');
+        setAwaitingVerification(false);
+      } else if (targetUser && !targetUser.email_confirmed_at) {
+        setAwaitingVerification(true);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setDisplayName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Hydrator');
+      const targetUser = session?.user ?? null;
+      if (targetUser && targetUser.email_confirmed_at) {
+        setUser(targetUser);
+        setDisplayName(targetUser.user_metadata?.full_name || targetUser.email?.split('@')[0] || 'Hydrator');
+        setAwaitingVerification(false);
+      } else if (targetUser && !targetUser.email_confirmed_at) {
+        setAwaitingVerification(true);
+      } else {
+        setUser(null);
+        setAwaitingVerification(false);
       }
     });
 
@@ -342,13 +356,23 @@ export default function Home() {
         });
         if (error) throw error;
         
+        // Locked into verification state if database requirements are turned back on
         if (data?.user) {
-          setUser(data.user);
-          setDisplayName(fullName.trim() || 'Hydrator');
+          if (data.user.email_confirmed_at) {
+            setUser(data.user);
+            setDisplayName(fullName.trim() || 'Hydrator');
+          } else {
+            setAwaitingVerification(true);
+          }
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        
+        if (data?.user && !data.user.email_confirmed_at) {
+          await supabase.auth.signOut();
+          setAwaitingVerification(true);
+        }
       }
     } catch (err) {
       const errorObj = err as any;
@@ -358,6 +382,8 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    setAwaitingVerification(false);
+    setUser(null);
   };
 
   const fetchTodayWater = async () => {
@@ -539,6 +565,31 @@ export default function Home() {
       setIsLoading(false);
     }
   };
+
+  // --- DYNAMIC EMAIL VERIFICATION SCREEN ---
+  if (awaitingVerification) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-slate-900 font-sans p-4">
+        <div className="w-full max-w-md bg-slate-800 rounded-[35px] p-8 shadow-2xl border border-slate-700/60 text-center relative overflow-hidden backdrop-blur-md">
+          <div className="w-16 h-16 bg-sky-500/10 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-5 text-2xl animate-bounce">
+            ✉️
+          </div>
+          <h2 className="text-2xl font-black text-white tracking-wide">Verify Your Email</h2>
+          <p className="text-sm text-slate-400 mt-3 leading-relaxed">
+            We have sent a verification secure confirmation sequence link directly to your email address. Please open it to initialize your profile analytics data shield.
+          </p>
+          <div className="mt-8 pt-6 border-t border-slate-700/40">
+            <button 
+              onClick={handleSignOut} 
+              className="w-full bg-slate-900 hover:bg-slate-950 border border-slate-700 text-slate-300 font-bold text-xs py-3 rounded-xl shadow-md transition-all active:scale-95"
+            >
+              ← Back to Login Screen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
