@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/generative-ai';
+import { GoogleGenrativeAI } from '@google/generative-ai';
 
 export async function POST(request) {
   try {
