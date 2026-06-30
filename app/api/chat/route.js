@@ -1,50 +1,48 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai'; // Or OpenAI depending on your setup
 
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { userMessage } = await req.json();
+    const { userMessage } = await request.json();
 
-    const waterSchema = {
-      type: SchemaType.OBJECT,
-      properties: {
-        action: { 
-          type: SchemaType.STRING, 
-          // Added 'decrease' and 'reset' to the available actions
-          enum: ["log", "decrease", "reset", "query", "unknown"],
-          description: "Choose 'log' if they drank water, 'decrease' if they want to reduce/subtract water or made a mistake, 'reset' if they want to clear everything to zero, 'query' for generic questions, or 'unknown' for off-topic chats."
-        },
-        amount_ml: { 
-          type: SchemaType.INTEGER, 
-          description: "The volume of water to add or subtract, strictly in milliliters (ml). If the user says 'remove 500ml', set this to 500. For a total reset, set this to 0." 
-        },
-        ai_reply: { 
-          type: SchemaType.STRING, 
-          description: "A short, encouraging, 1-sentence conversational response confirming the specific change." 
-        }
-      },
-      required: ["action", "amount_ml", "ai_reply"],
-    };
+    // 1. SYSTEM PROMPT DESIGNED TO TRAIN THE AI ON HYDRO-METRICS
+    const systemPrompt = `
+      You are the engine of HydroAgent AI. Your sole job is to read what a user drank or ate, calculate the net water/fluid content in milliliters (ml), and reply in JSON format.
 
-    const model = ai.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: waterSchema,
+      Use this standard fluid extraction chart for calculations:
+      - 1 Cup of Regular Tea / Green Tea = 200ml of water
+      - 1 Cup of Coffee = 150ml of water
+      - 1 Glass of Juice / Milk = 250ml of water
+      - 1 Can of Soda = 350ml of water
+      - 1 Bowl of Soup / Broth = 200ml of water
+      - 1 Cup of Watermelon / Hydrating Fruit = 140ml of water
+      - 1 Cup of Salad / Cucumber / Tomatoes = 100ml of water
+
+      Rules:
+      1. If they say "drank a cup of tea", you must set action to "log" and amount_ml to 200.
+      2. If they say "ate 2 cups of watermelon", calculate 2 * 140 = 280ml, set action to "log" and amount_ml to 280.
+      3. If they want to fix a mistake like "remove 100ml", set action to "decrease" and amount_ml to 100.
+      4. If they say "clear everything", set action to "reset" and amount_ml to 0.
+
+      Respond ONLY in this exact raw JSON format, nothing else:
+      {
+        "action": "log" | "decrease" | "reset" | "none",
+        "amount_ml": number,
+        "ai_reply": "Short, friendly response telling them what water weight was extracted."
       }
+    `;
+
+    // 2. CALL YOUR MODEL WITH THE NEW INTELLIGENT SYSTEM PROMPT
+    // (This example shows Gemini, but adapt the call to match your current imports)
+    const aiResponse = await callYourAIModel({
+      system: systemPrompt,
+      prompt: userMessage
     });
 
-    const response = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: userMessage }] }],
-      systemInstruction: "You are a precise health assistant data extractor. Look carefully at whether the user wants to add, subtract, or reset their water log. Always respond in the requested JSON structure.",
-    });
-
-    const resultJson = JSON.parse(response.response.text());
-    return Response.json(resultJson);
+    const parsedData = JSON.parse(aiResponse);
+    return NextResponse.json(parsedData);
 
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return Response.json({ action: "unknown", amount_ml: 0, ai_reply: "Oops, my AI engine glitched. Try telling me again!" }, { status: 500 });
+    return NextResponse.json({ action: "none", amount_ml: 0, ai_reply: "Error parsing fluid log." }, { status: 500 });
   }
 }
